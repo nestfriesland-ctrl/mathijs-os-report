@@ -1,1 +1,426 @@
-<h1>MATHIJS-OS Report</h1>
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>MATHIJS-OS Report</title>
+  <style>
+:root {
+  --bg: #0b0e11;
+  --surface: #141820;
+  --surface2: #1a1f2e;
+  --border: #252b3b;
+  --text: #e2e5ea;
+  --text-dim: #7a8194;
+  --accent: #3b82f6;
+  --green: #22c55e;
+  --red: #ef4444;
+  --amber: #f59e0b;
+  --amber-dim: #92610a;
+  --cyan: #06b6d4;
+  --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { font-size: 15px; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  line-height: 1.5;
+  padding: 16px;
+  max-width: 520px;
+  margin: 0 auto;
+  -webkit-font-smoothing: antialiased;
+}
+.header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+}
+.header h1 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.header .price {
+  font-size: 2rem;
+  font-weight: 700;
+  font-family: var(--mono);
+  letter-spacing: -0.02em;
+}
+.header .meta {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.card-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.pos-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.pos-item {
+  background: var(--surface2);
+  border-radius: 6px;
+  padding: 10px;
+}
+.pos-label {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.pos-value {
+  font-family: var(--mono);
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 2px;
+}
+.pos-value.green { color: var(--green); }
+.pos-value.red { color: var(--red); }
+.pos-value.amber { color: var(--amber); }
+.pnl-hero {
+  grid-column: span 2;
+  text-align: center;
+  padding: 14px;
+}
+.pnl-hero .pos-value {
+  font-size: 1.5rem;
+}
+/* Regime */
+.regime-label {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 4px 12px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+.regime-MOMENTUM  { background: #16532e; color: #4ade80; }
+.regime-ACCUMULATIE { background: #1e3a5f; color: #60a5fa; }
+.regime-DISTRIBUTIE { background: #5c2d0e; color: #fb923c; }
+.regime-CAPITULATIE { background: #581c1c; color: #f87171; }
+.regime-CHOP { background: #3b3216; color: #fbbf24; }
+.regime-UNKNOWN { background: #1e1e2e; color: #7a8194; }
+/* Score bars */
+.score-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.score-label {
+  width: 28px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+.score-track {
+  flex: 1;
+  height: 6px;
+  background: var(--surface2);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 0 8px;
+}
+.score-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+.score-val {
+  width: 28px;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  flex-shrink: 0;
+}
+/* Edge meter */
+.edge-meter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+.edge-number {
+  font-family: var(--mono);
+  font-size: 1.8rem;
+  font-weight: 700;
+  min-width: 80px;
+}
+.edge-bar-track {
+  flex: 1;
+  height: 10px;
+  background: var(--surface2);
+  border-radius: 5px;
+  overflow: hidden;
+  position: relative;
+}
+.edge-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+}
+.edge-bar-center {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  width: 2px;
+  height: 14px;
+  background: var(--text-dim);
+}
+/* Volatility */
+.vol-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+.vol-item {
+  background: var(--surface2);
+  border-radius: 6px;
+  padding: 10px;
+  text-align: center;
+}
+.vol-num {
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.vol-sub {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.vol-flag {
+  grid-column: span 3;
+  text-align: center;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.vol-flag.active {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--red);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.vol-flag.normal {
+  background: var(--surface2);
+  color: var(--text-dim);
+}
+/* Setups */
+.setup-block {
+  background: var(--surface2);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 8px;
+  white-space: pre-wrap;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+/* Details / collapsible */
+details {
+  margin-bottom: 8px;
+}
+details summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  padding: 4px 0;
+}
+details summary:hover {
+  color: var(--text);
+}
+details[open] summary {
+  margin-bottom: 8px;
+}
+.lesson-text {
+  background: var(--surface2);
+  border-left: 3px solid var(--amber);
+  padding: 10px 12px;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.footer {
+  text-align: center;
+  padding: 20px 0;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>MATHIJS-OS Morning Report</h1>
+  <div class="price">$83,244</div>
+  <div class="meta">Sunday 15 March 2026 · gegenereerd 13:57 CET</div>
+</div>
+<div class="card">
+  <div class="card-title">📍 BTC LONG 1.0 @ $71,500</div>
+  <div class="pos-grid">
+    <div class="pos-item pnl-hero">
+      <div class="pos-label">Unrealized P&amp;L</div>
+      <div class="pos-value green">+$11,744 (+16.4%)</div>
+    </div>
+    <div class="pos-item">
+      <div class="pos-label">Entry</div>
+      <div class="pos-value">$71,500</div>
+    </div>
+    <div class="pos-item">
+      <div class="pos-label">Huidige prijs</div>
+      <div class="pos-value">$83,244</div>
+    </div>
+    <div class="pos-item">
+      <div class="pos-label">Stop Loss</div>
+      <div class="pos-value amber">$69,800 (16.2%)</div>
+    </div>
+    <div class="pos-item">
+      <div class="pos-label">Take Profit</div>
+      <div class="pos-value green">$76,000 (8.7%)</div>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-title">Regime Analyse</div>
+  <span class="regime-label regime-ACCUMULATIE">ACCUMULATIE</span>
+  <div class="score-row">
+  <span class="score-label">S1</span>
+  <div class="score-track">
+    <div class="score-fill" style="width:65%;background:var(--amber)"></div>
+  </div>
+  <span class="score-val">+6.5</span>
+</div><div class="score-row">
+  <span class="score-label">S3</span>
+  <div class="score-track">
+    <div class="score-fill" style="width:52%;background:var(--amber)"></div>
+  </div>
+  <span class="score-val">-5.2</span>
+</div><div class="score-row">
+  <span class="score-label">S4</span>
+  <div class="score-track">
+    <div class="score-fill" style="width:21%;background:var(--green)"></div>
+  </div>
+  <span class="score-val">-2.1</span>
+</div>
+  <details><summary>S5 toelichting</summary><div class="setup-block">Lage volatiliteit met stijgende OI en whale accumulatie.</div></details>
+</div>
+<div class="card">
+  <div class="card-title">Volatiliteit · Hyblock Paper Features</div>
+  <div class="vol-grid">
+    <div class="vol-item">
+      <div class="vol-num" style="color:var(--amber)">0.91%</div>
+      <div class="vol-sub">ATR% (14h)</div>
+    </div>
+    <div class="vol-item">
+      <div class="vol-num">42%</div>
+      <div class="vol-sub">Parkinson 7d</div>
+    </div>
+    <div class="vol-item">
+      <div class="vol-num">$758</div>
+      <div class="vol-sub">ATR range</div>
+    </div>
+    <div class="vol-flag active">⚠️ LOW VOLATILITY REGIME — cascade risk verhoogd</div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-title">⚡ Cascade Risk Index</div>
+  <div class="edge-meter">
+    <div class="edge-number" style="color:var(--red)">6.5</div>
+    <div style="flex:1">
+      <div style="font-size:0.78rem;color:var(--red);font-weight:600;margin-bottom:4px">CRITICAL</div>
+      <div class="edge-bar-track">
+        <div class="edge-bar-fill" style="width:65%;background:var(--red)"></div>
+      </div>
+    </div>
+  </div>
+  <div style="font-size:0.72rem;color:var(--text-dim);margin-top:6px">Dominant: volatiliteit</div>
+  <details><summary>Componenten</summary><div class="score-row">
+  <span class="score-label" style="width:60px;font-size:0.68rem">Volatili</span>
+  <div class="score-track">
+    <div class="score-fill" style="width:67%;background:var(--red)"></div>
+  </div>
+  <span class="score-val">2.0/3</span>
+</div><div class="score-row">
+  <span class="score-label" style="width:60px;font-size:0.68rem">Leverage</span>
+  <div class="score-track">
+    <div class="score-fill" style="width:50%;background:var(--red)"></div>
+  </div>
+  <span class="score-val">1.0/2</span>
+</div><div class="score-row">
+  <span class="score-label" style="width:60px;font-size:0.68rem">Oi Diver</span>
+  <div class="score-track">
+    <div class="score-fill" style="width:75%;background:var(--red)"></div>
+  </div>
+  <span class="score-val">1.5/2</span>
+</div><div class="score-row">
+  <span class="score-label" style="width:60px;font-size:0.68rem">Liq Prox</span>
+  <div class="score-track">
+    <div class="score-fill" style="width:50%;background:var(--red)"></div>
+  </div>
+  <span class="score-val">1.0/2</span>
+</div><div class="score-row">
+  <span class="score-label" style="width:60px;font-size:0.68rem">Funding</span>
+  <div class="score-track">
+    <div class="score-fill" style="width:100%;background:var(--red)"></div>
+  </div>
+  <span class="score-val">1.0/1</span>
+</div></details>
+</div>
+<div class="card">
+  <div class="card-title">Edge Engine · P(bullish 24h)</div>
+  <div class="edge-meter">
+    <div class="edge-number" style="color:var(--green)">62%</div>
+    <div>
+      <div style="font-size:0.78rem;color:var(--text-dim);margin-bottom:4px">BULLISH</div>
+      <div class="edge-bar-track">
+        <div class="edge-bar-center"></div>
+        <div class="edge-bar-fill" style="width:62%;background:var(--green)"></div>
+      </div>
+    </div>
+  </div>
+  <div style="font-size:0.72rem;color:var(--text-dim);margin-top:8px">BSS +0.08 · 58% hit rate · 47 resolved</div>
+</div>
+<div class="card">
+  <div class="card-title">Setups van de dag</div>
+  <div class="setup-block">REGIME: ACCUMULATIE
+BTC consolideert in $82-85K range.
+
+SETUP 1: BTC LONG
+  Entry: $82,800
+  SL: $80,500
+  TP1: $86,200
+  Rationale: Low vol regime + SM accumulatie.
+
+Conclusie: ⚡ Schaalbare entries starten.</div>
+</div>
+<div class="card">
+  <div class="card-title">📝 Lesson van gisteren</div>
+  <div class="lesson-text">
+  Momentum setups in lage vol regime presteren ondermaats. Wacht op ATR% &gt; 1.5.
+  <div style="font-size:0.7rem;color:var(--text-dim);margin-top:6px">Hits: 3×</div>
+</div>
+</div>
+<div class="footer">MATHIJS-OS · observe only · geen beleggingsadvies</div>
+</body>
+</html>
