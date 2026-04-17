@@ -59,6 +59,75 @@ function parseSensorMeta(content) {
   return meta;
 }
 
+
+// --- Generic parsers (Machinekamer protocol) ---
+
+function parseRegime(content) {
+  const m = content.match(/^>\s*regime:\s*(.+)/m);
+  return m ? m[1].trim() : null;
+}
+
+function parseKrant(content) {
+  const krant = {};
+  const stellingMatch = content.match(/\*\*Stelling:\*\*\s*(.+)/);
+  const bewijsMatch = content.match(/\*\*Bewijs:\*\*\s*([\s\S]*?)(?=\n\*\*Les:|\n\*\*Actie:|\n##)/);
+  const lesMatch = content.match(/\*\*Les:\*\*\s*(.+)/);
+  const actieMatch = content.match(/\*\*Actie:\*\*\s*(.+)/);
+
+  krant.stelling = stellingMatch ? stellingMatch[1].trim() : null;
+  krant.bewijs = bewijsMatch ? bewijsMatch[1].trim() : null;
+  krant.les = lesMatch ? lesMatch[1].trim() : null;
+  krant.actie = actieMatch ? actieMatch[1].trim() : null;
+
+  const vorigeMatch = content.match(/\*\*Vorige stelling:\*\*\s*(.+)/);
+  const uitkomstMatch = content.match(/\*\*Uitkomst:\*\*\s*(\w+)/);
+  const toelichtingMatch = content.match(/\*\*Toelichting:\*\*\s*(.+)/);
+
+  krant.vorigeStelling = vorigeMatch ? vorigeMatch[1].trim() : null;
+  krant.uitkomst = uitkomstMatch ? uitkomstMatch[1].trim() : null;
+  krant.toelichting = toelichtingMatch ? toelichtingMatch[1].trim() : null;
+
+  krant.hasKrant = !!(krant.stelling || krant.les);
+  return krant;
+}
+
+function renderKrantSection(krant) {
+  if (!krant.hasKrant) return '';
+
+  const uitkomstClass = krant.uitkomst === 'BEVESTIGD' ? 'pos'
+    : krant.uitkomst === 'WEERLEGD' ? 'neg' : 'neutral';
+
+  const preview = krant.stelling
+    ? krant.stelling.substring(0, 70) + (krant.stelling.length > 70 ? '...' : '')
+    : '';
+
+  return `
+    <div class="krant-section" onclick="event.stopPropagation(); this.classList.toggle('krant-open')">
+      <div class="krant-toggle">\u25b8 ${preview || 'Krant'}</div>
+      <div class="krant-body">
+        ${krant.stelling ? `<div class="krant-row"><span class="krant-label">Stelling</span><span class="krant-value">${krant.stelling}</span></div>` : ''}
+        ${krant.bewijs ? `<div class="krant-row"><span class="krant-label">Bewijs</span><span class="krant-value">${krant.bewijs}</span></div>` : ''}
+        ${krant.les ? `<div class="krant-row krant-les"><span class="krant-label">Les</span><span class="krant-value">${krant.les}</span></div>` : ''}
+        ${krant.actie ? `<div class="krant-row"><span class="krant-label">Actie</span><span class="krant-value">${krant.actie}</span></div>` : ''}
+        ${krant.vorigeStelling ? `
+          <div class="krant-terugblik">
+            <div class="krant-row"><span class="krant-label">Vorige</span><span class="krant-value">${krant.vorigeStelling}</span></div>
+            <div class="krant-row"><span class="krant-label">Uitkomst</span><span class="krant-value ${uitkomstClass}">${krant.uitkomst || '\u2014'}</span></div>
+            ${krant.toelichting ? `<div class="krant-row"><span class="krant-label"></span><span class="krant-value krant-dim">${krant.toelichting}</span></div>` : ''}
+          </div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function regimeColor(regime) {
+  if (!regime) return 'regime-unknown';
+  const r = regime.toLowerCase();
+  if (['rally','nominal','flowing','growing','validated','rotation'].includes(r)) return 'regime-pos';
+  if (['correction','capitulation','down','stalled','declining','falsified'].includes(r)) return 'regime-neg';
+  return 'regime-neutral';
+}
+
 // --- Sensor-specific parsers ---
 
 function stripTags(s) {
@@ -71,20 +140,55 @@ function colorClass(val) {
 }
 
 function parseMarket(content) {
+  // Try new table format first (Machinekamer protocol)
+  const tableRows = [];
+  const tableRe = /^\|\s*(BTC|ETH)\s*\|\s*\$?([0-9,]+(?:\.[0-9]+)?)\s*\|\s*([+-]?[0-9.]+%)\s*\|\s*([+-]?[0-9.]+%)\s*\|\s*(-?[0-9.]+%)\s*\|/gm;
+  let m;
+  while ((m = tableRe.exec(content)) !== null) {
+    tableRows.push({ asset: m[1], price: m[2], d24h: m[3], d7d: m[4], ath: m[5] });
+  }
+
+  if (tableRows.length > 0) {
+    const btc = tableRows.find(r => r.asset === 'BTC');
+    const eth = tableRows.find(r => r.asset === 'ETH');
+    const fgMatch = content.match(/Fear & Greed:\s*(\d+)\s*\(([^)]+)\)/);
+    const domMatch = content.match(/BTC Dominance:\s*([0-9.]+)%/);
+    const fundingMatch = content.match(/Funding:\s*(.+)/);
+    const macroMatch = content.match(/Macro:\s*(.+)/);
+
+    return {
+      btcPrice: btc ? btc.price : null,
+      btc24h: btc ? btc.d24h : null,
+      btc7d: btc ? btc.d7d : null,
+      btcAthDist: btc ? btc.ath : null,
+      ethPrice: eth ? eth.price : null,
+      eth24h: eth ? eth.d24h : null,
+      ethAthDist: eth ? eth.ath : null,
+      fearGreed: fgMatch ? { score: fgMatch[1], label: fgMatch[2] } : null,
+      dominance: domMatch ? domMatch[1] : null,
+      funding: fundingMatch ? stripTags(fundingMatch[1]) : null,
+      macro: macroMatch ? stripTags(macroMatch[1]) : null,
+    };
+  }
+
+  // Fallback: old inline format
   const btcMatch = content.match(/BTC:\s*\$([0-9,]+)\s*\|\s*24h:\s*([+-][0-9.]+%)/);
   const ethMatch = content.match(/ETH:\s*\$([0-9,]+)\s*\|\s*24h:\s*([+-][0-9.]+%)/);
-  const btcAthMatch = content.match(/BTC:.*?ATH[^|]*\|\s*(-[0-9.]+%)\s*van top/);
-  const ethAthMatch = content.match(/ETH:.*?ATH[^|]*\|\s*(-[0-9.]+%)\s*van top/);
-  const macroMatch = content.match(/Macro:\s*(.+)/);
+  const btcAthMatch = content.match(/ATH afstand:\s*(-[0-9.]+%)/);
+  const macroMatch2 = content.match(/Macro:\s*(.+)/);
 
   return {
     btcPrice: btcMatch ? btcMatch[1] : null,
     btc24h: btcMatch ? btcMatch[2] : null,
+    btc7d: null,
+    btcAthDist: btcAthMatch ? btcAthMatch[1] : null,
     ethPrice: ethMatch ? ethMatch[1] : null,
     eth24h: ethMatch ? ethMatch[2] : null,
-    btcAthDist: btcAthMatch ? btcAthMatch[1] : null,
-    ethAthDist: ethAthMatch ? ethAthMatch[1] : null,
-    macro: macroMatch ? stripTags(macroMatch[1]) : null,
+    ethAthDist: null,
+    fearGreed: null,
+    dominance: null,
+    funding: null,
+    macro: macroMatch2 ? stripTags(macroMatch2[1]) : null,
   };
 }
 
@@ -218,6 +322,7 @@ function parseAntiFrag(content) {
 
 function renderMarketCard(content) {
   const d = parseMarket(content);
+  const krant = parseKrant(content);
   if (!d.btcPrice) return '<div class="card-waiting">Geen data</div>';
 
   return `
@@ -226,6 +331,7 @@ function renderMarketCard(content) {
         <div class="market-ticker">BTC</div>
         <div class="market-price">$${d.btcPrice}</div>
         <div class="market-change ${colorClass(d.btc24h)}">${d.btc24h}</div>
+        ${d.btc7d ? `<div class="market-7d ${colorClass(d.btc7d)}">${d.btc7d} 7d</div>` : ''}
       </div>
       ${d.btcAthDist ? `<div class="market-ath-block">
         <div class="ath-label">van ATH</div>
@@ -241,12 +347,19 @@ function renderMarketCard(content) {
         ${d.ethAthDist ? `<span class="alt-ath ${colorClass(d.ethAthDist)}">${d.ethAthDist}</span>` : ''}
       </div>` : ''}
     </div>
+    ${d.fearGreed || d.dominance || d.funding ? `<div class="market-indicators">
+      ${d.fearGreed ? `<span class="indicator"><span class="ind-label">F&G</span> <span class="ind-value">${d.fearGreed.score}</span></span>` : ''}
+      ${d.dominance ? `<span class="indicator"><span class="ind-label">BTC.D</span> <span class="ind-value">${d.dominance}%</span></span>` : ''}
+      ${d.funding ? `<span class="indicator"><span class="ind-label">FR</span> <span class="ind-value">${d.funding}</span></span>` : ''}
+    </div>` : ''}
     ${d.macro ? `<div class="market-macro">${d.macro}</div>` : ''}
+    ${renderKrantSection(krant)}
   `;
 }
 
 function renderDerivativesCard(content) {
   const d = parseDerivatives(content);
+  const krant = parseKrant(content);
 
   const regimeClass = d.regime === 'UP' ? 'regime-up'
     : d.regime === 'DOWN' ? 'regime-down'
@@ -263,11 +376,13 @@ function renderDerivativesCard(content) {
       ${d.bar ? `<div class="deriv-stat"><div class="deriv-label">BAR</div><div class="deriv-value">${d.bar}</div></div>` : ''}
       ${d.cascade ? `<div class="deriv-stat"><div class="deriv-label">CASCADE</div><div class="deriv-value">${d.cascade}</div></div>` : ''}
     </div>
+    ${renderKrantSection(krant)}
   `;
 }
 
 function renderNestSeoCard(content) {
   const d = parseNestSeo(content);
+  const krant = parseKrant(content);
 
   const tableRows = d.backlinkRows.map(row => {
     const drNum = parseInt(row.dr);
@@ -307,11 +422,13 @@ function renderNestSeoCard(content) {
         </table>
       </div>` : ''}
     </div>
+    ${renderKrantSection(krant)}
   `;
 }
 
 function renderInfraCard(content) {
   const d = parseInfra(content);
+  const krant = parseKrant(content);
 
   const sitesDots = d.sites.map(s => {
     const ok = s.code >= 200 && s.code < 400;
@@ -341,11 +458,13 @@ function renderInfraCard(content) {
     </div>` : ''}
     ${d.git ? `<div class="infra-meta"><span class="infra-meta-key">GIT</span> ${d.git}</div>` : ''}
     ${d.bridge ? `<div class="infra-meta"><span class="infra-meta-key">BRIDGE</span> ${d.bridge}</div>` : ''}
+    ${renderKrantSection(krant)}
   `;
 }
 
 function renderEnrichmentCard(content) {
   const d = parseEnrichment(content);
+  const krant = parseKrant(content);
 
   return `
     <div class="enrichment-counts">
@@ -362,11 +481,13 @@ function renderEnrichmentCard(content) {
         <div class="e-label">errors</div>
       </div>
     </div>
+    ${renderKrantSection(krant)}
   `;
 }
 
 function renderWatchlistCard(content) {
   const d = parseWatchlist(content);
+  const krant = parseKrant(content);
   if (!d.assets.length) return '<div class="card-waiting">Geen data</div>';
 
   const rows = d.assets.map(a => {
@@ -396,11 +517,13 @@ function renderWatchlistCard(content) {
       </table>
       ${signalsHtml}
     </div>
+    ${renderKrantSection(krant)}
   `;
 }
 
 function renderAntiFragCard(content) {
   const d = parseAntiFrag(content);
+  const krant = parseKrant(content);
 
   return `
     <div class="af-content">
@@ -409,6 +532,7 @@ function renderAntiFragCard(content) {
       ${d.status ? `<div class="af-status">${d.status}</div>` : ''}
       ${d.edges ? `<div class="af-edges">Edges: ${d.edges}</div>` : ''}
     </div>
+    ${renderKrantSection(krant)}
   `;
 }
 
@@ -430,7 +554,8 @@ async function renderDashboard() {
     <div class="sensor-card" data-sensor="${name}">
       <div class="sensor-header">
         <span class="sensor-name">${name}</span>
-        <span class="sensor-badge badge-down" id="badge-${name}">…</span>
+        <span class="regime-label" id="regime-${name}"></span>
+        <span class="sensor-badge badge-down" id="badge-${name}">...</span>
       </div>
       <div class="sensor-body" id="body-${name}"><div class="loading-text">laden…</div></div>
     </div>
@@ -460,6 +585,14 @@ async function renderDashboard() {
       } else {
         badge.textContent = 'ERR';
         badge.className = 'sensor-badge badge-down';
+      }
+
+      // Regime badge
+      const regime = parseRegime(content);
+      const regimeEl = document.getElementById(`regime-${name}`);
+      if (regime && regimeEl) {
+        regimeEl.textContent = regime;
+        regimeEl.className = `regime-label ${regimeColor(regime)}`;
       }
 
       const renderer = RENDERERS[name];

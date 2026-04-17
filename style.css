@@ -753,3 +753,92 @@ body {
   .seo-dr-value { font-size: 2.2rem; }
   .deriv-stats { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ─── REGIME LABELS ─── */
+.regime-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.35rem;
+  border-radius: 3px;
+  margin-left: auto;
+  margin-right: 0.5rem;
+}
+.regime-label:empty { display: none; }
+.regime-pos { color: var(--green); background: rgba(34,197,94,0.1); }
+.regime-neg { color: var(--red); background: rgba(239,68,68,0.1); }
+.regime-neutral { color: var(--yellow); background: rgba(234,179,8,0.1); }
+.regime-unknown { display: none; }
+
+/* ─── KRANT SECTION ─── */
+.krant-section {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.5rem;
+}
+.krant-toggle {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0.15rem 0;
+  transition: color 0.15s;
+}
+.krant-toggle:hover { color: var(--text); }
+.krant-body {
+  display: none;
+  padding: 0.5rem 0 0.25rem;
+}
+.krant-open .krant-body { display: block; }
+.krant-open .krant-toggle { color: var(--text); }
+.krant-row {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+.krant-label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  min-width: 4.5rem;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-top: 0.1rem;
+}
+.krant-value { color: var(--text); }
+.krant-value.pos { color: var(--green); }
+.krant-value.neg { color: var(--red); }
+.krant-value.neutral { color: var(--yellow); }
+.krant-dim { color: var(--text-dim); font-style: italic; }
+.krant-les .krant-value { color: var(--yellow); }
+.krant-terugblik {
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed var(--border);
+}
+
+/* ─── MARKET INDICATORS ─── */
+.market-indicators {
+  display: flex;
+  gap: 1rem;
+  padding: 0.4rem 0;
+  flex-wrap: wrap;
+}
+.indicator { font-family: var(--font-mono); font-size: 0.72rem; }
+.ind-label { color: var(--text-dim); }
+.ind-value { color: var(--text); margin-left: 0.2rem; }
+.market-7d {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  margin-top: 0.15rem;
+  opacity: 0.7;
+}
