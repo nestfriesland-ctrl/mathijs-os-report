@@ -32,7 +32,10 @@ async function fetchFile(path) {
 function parseSensorMeta(content) {
   const meta = { lastUpdated: null, hoursAgo: null, status: 'unknown', notDeployed: false };
 
-  if (content.includes('NOT DEPLOYED')) {
+  // Match NOT DEPLOYED only when it is the sensor's own declared status,
+  // not when an infra or morning paper sensor references other sensors.
+  // Accepts: "status: NOT DEPLOYED", "> status: NOT DEPLOYED", "status: NOT_DEPLOYED"
+  if (/^[>\s]*status:\s*NOT[_ ]DEPLOYED/mi.test(content)) {
     meta.notDeployed = true;
     return meta;
   }
