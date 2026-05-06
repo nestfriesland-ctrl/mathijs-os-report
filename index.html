@@ -4,8 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PULSE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◉</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.92em' font-size='90' font-family='Fraunces,serif' font-weight='900'>P</text></svg>">
 </head>
 <body>
   <nav id="nav">
@@ -16,13 +19,38 @@
     </div>
   </nav>
 
-  <div id="alert-stack"></div>
-
   <main id="app">
     <div id="dashboard-view" class="view active">
-      <div id="thermometers"></div>
-      <h1>Sensor Dashboard</h1>
-      <div id="sensor-grid" class="sensor-grid"></div>
+      <header class="masthead container">
+        <div class="brand">PULSE<sup>v3</sup></div>
+        <div class="meta" id="masthead-meta">…</div>
+        <div class="live-tape">
+          <span class="live-dot"></span>BTC <span class="price" data-live="BTC-price">—</span>
+          <span class="delta-up" data-live="BTC-24h-delta">—</span>
+          <span class="stamp" data-live="stamp">—</span>
+        </div>
+      </header>
+
+      <div id="alert-stack"></div>
+
+      <main class="container" id="editorial">
+        <section class="lead" id="sec-lead"><div class="loading">lead laden…</div></section>
+        <section class="fg-band" id="sec-fg"><div class="loading">sentiment laden…</div></section>
+        <section class="heat-index" id="sec-heat">
+          <div class="section-head">
+            <h2>Heat Index</h2>
+            <span class="sub">live · gemeten tegen anker · drempels 0.5 / 1 / 2 / 5%</span>
+          </div>
+          <div class="heat-grid" id="heat-grid"></div>
+        </section>
+        <section id="sec-position"></section>
+        <section class="triple" id="sec-triple"></section>
+        <section class="duo" id="sec-duo"></section>
+        <section class="strip" id="sec-strip"></section>
+        <footer class="editorial" id="sec-footer">
+          Pulse · intelligence cockpit · build feat/krant-laag · Luxwoude
+        </footer>
+      </main>
     </div>
 
     <div id="graph-view" class="view">
@@ -40,10 +68,18 @@
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
   <script src="/lib/kraken.js"></script>
   <script src="/lib/thermometer.js"></script>
-  <script src="/components/thermometers.js"></script>
+  <script src="/lib/charts.js"></script>
   <script src="/lib/alerts.js"></script>
+  <script src="/components/heat-index.js"></script>
+  <script src="/components/lead.js"></script>
+  <script src="/components/fear-greed.js"></script>
+  <script src="/components/position-inset.js"></script>
+  <script src="/components/triple.js"></script>
+  <script src="/components/duo.js"></script>
+  <script src="/components/strip.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
