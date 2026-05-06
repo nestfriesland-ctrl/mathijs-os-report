@@ -4,7 +4,7 @@
 const API = '/api/wiki';
 let tree = null;
 let cache = {};
-const SENSORS = ['market', 'derivatives', 'watchlist', 'nest-seo', 'infra', 'enrichment', 'anti-fragile'];
+const SENSORS = ['market', 'watchlist', 'nest-seo', 'infra', 'enrichment', 'anti-fragile'];
 
 // --- API layer ---
 
@@ -247,22 +247,6 @@ function parseNestSeo(content) {
   };
 }
 
-function parseDerivatives(content) {
-  const regimeMatch = content.match(/Regime[:\s]+(\w+)/i);
-  const frMatch = content.match(/^FR[:\s]+(.+)/im);
-  const oiMatch = content.match(/^OI[:\s]+(.+)/im);
-  const barMatch = content.match(/^BAR[:\s]+(.+)/im);
-  const cascadeMatch = content.match(/[Cc]ascade[^:]*:\s*(.+)/);
-
-  return {
-    regime: regimeMatch ? regimeMatch[1].trim() : null,
-    fr: frMatch ? stripTags(frMatch[1]) : null,
-    oi: oiMatch ? stripTags(oiMatch[1]) : null,
-    bar: barMatch ? stripTags(barMatch[1]) : null,
-    cascade: cascadeMatch ? stripTags(cascadeMatch[1]) : null,
-  };
-}
-
 function parseEnrichment(content) {
   const pendingMatch = content.match(/[Pp]ending[:\s]+(\d+)/);
   const completeMatch = content.match(/[Cc]omplete[:\s]+(\d+)/);
@@ -356,29 +340,6 @@ function renderMarketCard(content) {
       ${d.funding ? `<span class="indicator"><span class="ind-label">FR</span> <span class="ind-value">${d.funding}</span></span>` : ''}
     </div>` : ''}
     ${d.macro ? `<div class="market-macro">${d.macro}</div>` : ''}
-    ${renderKrantSection(krant)}
-  `;
-}
-
-function renderDerivativesCard(content) {
-  const d = parseDerivatives(content);
-  const krant = parseKrant(content);
-
-  const regimeClass = d.regime === 'UP' ? 'regime-up'
-    : d.regime === 'DOWN' ? 'regime-down'
-    : d.regime ? 'regime-sideways'
-    : 'regime-unknown';
-
-  return `
-    <div class="deriv-primary">
-      <span class="regime-badge ${regimeClass}">${d.regime || '—'}</span>
-    </div>
-    <div class="deriv-stats">
-      ${d.fr ? `<div class="deriv-stat"><div class="deriv-label">FR</div><div class="deriv-value">${d.fr}</div></div>` : ''}
-      ${d.oi ? `<div class="deriv-stat"><div class="deriv-label">OI</div><div class="deriv-value">${d.oi}</div></div>` : ''}
-      ${d.bar ? `<div class="deriv-stat"><div class="deriv-label">BAR</div><div class="deriv-value">${d.bar}</div></div>` : ''}
-      ${d.cascade ? `<div class="deriv-stat"><div class="deriv-label">CASCADE</div><div class="deriv-value">${d.cascade}</div></div>` : ''}
-    </div>
     ${renderKrantSection(krant)}
   `;
 }
@@ -541,7 +502,6 @@ function renderAntiFragCard(content) {
 
 const RENDERERS = {
   'market': renderMarketCard,
-  'derivatives': renderDerivativesCard,
   'watchlist': renderWatchlistCard,
   'nest-seo': renderNestSeoCard,
   'infra': renderInfraCard,
