@@ -1,0 +1,714 @@
+<!doctype html>
+<!--
+  PULSE — krant-richting referentie-mockup
+  Gemaakt: 6 mei 2026
+  Doel: visuele referentie voor designer. Geen productie-code.
+
+  AESTHETISCHE RICHTING — "editorial brutalism"
+  Lineage: Financial Times, The Economist, NYT Magazine, maar dichter en
+  donkerder. Headlines zijn ARGUMENTEN, niet labels. Cijfers zijn mono,
+  argumenten zijn serif, meta is condensed sans. Verticale rules scheiden
+  kolommen zoals een echte krant. Witruimte is bewust beperkt — pulse is
+  een intelligence-cockpit, geen luxe-magazine.
+
+  BEHOUDEN UIT v3:
+  - Banner-alerts (Mathijs noemde screenshot "sterk")
+  - Thermometer-strip (alleen visueel hertaald als "heat index")
+  - Live-laag met seconde-stempel
+  - Twee tijd-stempels: minuut-precieus voor krant, seconde-precieus voor live
+
+  VERANDERD:
+  - Card-grid → editorial flow met kolommen + rules
+  - Regime-pills → kicker-tags boven artikel-koppen
+  - Sensor-titels (LABELS) → argument-headlines (CLAIMS)
+  - Generic sans → Fraunces display + IBM Plex Serif body + IBM Plex Mono cijfers
+-->
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PULSE — krant-richting</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f4f1ea;
+    --paper-rule: #d9d2c3;
+    --ink: #16140f;
+    --ink-soft: #4a463c;
+    --ink-mute: #756f5f;
+    --bull: #1f6e3f;
+    --bear: #a02a26;
+    --warn: #b67c0a;
+    --neutral: #8a8576;
+    --alert-bg: rgba(180,124,10,0.06);
+    --alert-border: rgba(180,124,10,0.35);
+    --alert-strong-bg: rgba(31,110,63,0.07);
+    --alert-strong-border: rgba(31,110,63,0.45);
+    --alert-critical-bg: rgba(160,42,38,0.08);
+    --alert-critical-border: rgba(160,42,38,0.55);
+    --display: 'Fraunces', 'Times New Roman', serif;
+    --serif: 'IBM Plex Serif', Georgia, serif;
+    --mono: 'IBM Plex Mono', Menlo, monospace;
+    --sans: 'IBM Plex Sans Condensed', 'Helvetica Neue', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 15px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    /* paper texture: subtle noise via inline data-uri (cheap, no asset) */
+    background-image: 
+      radial-gradient(rgba(0,0,0,0.018) 1px, transparent 1px);
+    background-size: 3px 3px;
+  }
+
+  .container { max-width: 1320px; margin: 0 auto; padding: 0 32px; }
+
+  /* ---------- MASTHEAD ----------------------------------------------- */
+  .masthead {
+    border-bottom: 1px solid var(--ink);
+    padding: 28px 32px 14px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: end;
+    gap: 32px;
+  }
+  .masthead .brand {
+    font-family: var(--display);
+    font-weight: 900;
+    font-size: 88px;
+    line-height: 0.85;
+    letter-spacing: -0.04em;
+    font-variation-settings: 'opsz' 144, 'SOFT' 0;
+  }
+  .masthead .brand sup {
+    font-family: var(--sans);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    vertical-align: super;
+    margin-left: 6px;
+    color: var(--ink-mute);
+  }
+  .masthead .meta {
+    font-family: var(--sans);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--ink-soft);
+    text-align: center;
+    border-top: 1px solid var(--paper-rule);
+    border-bottom: 1px solid var(--paper-rule);
+    padding: 6px 0;
+  }
+  .masthead .meta strong { color: var(--ink); font-weight: 600; }
+  .masthead .live-tape {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: -0.01em;
+    text-align: right;
+    color: var(--ink-soft);
+  }
+  .masthead .live-tape .live-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--bull);
+    margin-right: 6px;
+    vertical-align: 1px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .masthead .live-tape .price { color: var(--ink); font-weight: 600; }
+  .masthead .live-tape .delta-up { color: var(--bull); }
+  .masthead .live-tape .delta-down { color: var(--bear); }
+  .masthead .live-tape .stamp { color: var(--ink-mute); margin-left: 10px; }
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.55; transform: scale(0.85); }
+  }
+
+  /* ---------- ALERTS — BEHOUDEN ZOALS V3 ---------------------------- */
+  .alert-stack { padding: 14px 0 0; }
+  .alert-banner {
+    border: 1px solid var(--alert-border);
+    background: var(--alert-bg);
+    padding: 10px 16px;
+    display: grid;
+    grid-template-columns: 56px 1fr 24px;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--mono);
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+  .alert-banner.alert-strong { border-color: var(--alert-strong-border); background: var(--alert-strong-bg); }
+  .alert-banner.alert-critical { border-color: var(--alert-critical-border); background: var(--alert-critical-bg); }
+  .alert-banner .alert-time { color: var(--ink-mute); font-size: 12px; }
+  .alert-banner .alert-msg { color: var(--ink); }
+  .alert-banner .alert-msg .arrow { color: var(--ink-mute); margin: 0 6px; }
+  .alert-banner .alert-x {
+    color: var(--ink-mute);
+    cursor: pointer;
+    text-align: right;
+    font-size: 16px;
+    user-select: none;
+  }
+  .alert-banner .alert-x:hover { color: var(--ink); }
+
+  /* ---------- LEAD ARTICLE ------------------------------------------ */
+  .lead {
+    padding: 32px 0 24px;
+    border-bottom: 2px solid var(--ink);
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 48px;
+  }
+  .lead .kicker {
+    font-family: var(--sans);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--bear);
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+  .lead h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 56px;
+    line-height: 1.02;
+    letter-spacing: -0.025em;
+    margin: 0 0 20px;
+    font-variation-settings: 'opsz' 144;
+  }
+  .lead h1 em {
+    font-style: italic;
+    font-weight: 500;
+  }
+  .lead .deck {
+    font-family: var(--serif);
+    font-size: 19px;
+    line-height: 1.4;
+    color: var(--ink-soft);
+    font-weight: 400;
+    margin: 0 0 18px;
+    font-style: italic;
+  }
+  .lead .lead-body {
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.55;
+    column-count: 2;
+    column-gap: 32px;
+    column-rule: 1px solid var(--paper-rule);
+  }
+  .lead .lead-body::first-letter {
+    font-family: var(--display);
+    float: left;
+    font-size: 64px;
+    line-height: 0.85;
+    font-weight: 900;
+    margin: 4px 8px -4px 0;
+    color: var(--ink);
+  }
+  .lead .lead-body strong { font-weight: 600; color: var(--ink); }
+  .lead .lead-body .cite { font-family: var(--mono); font-size: 13px; color: var(--ink-soft); }
+
+  /* lead sidebar — falsifier */
+  .lead aside {
+    border-left: 1px solid var(--paper-rule);
+    padding-left: 32px;
+    font-family: var(--serif);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .lead aside .label {
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--ink-mute);
+    margin-bottom: 8px;
+  }
+  .lead aside h3 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 22px;
+    line-height: 1.15;
+    margin: 0 0 10px;
+    letter-spacing: -0.01em;
+  }
+  .lead aside .falsifier {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: rgba(22,20,15,0.04);
+    padding: 10px 12px;
+    border-left: 2px solid var(--bear);
+    margin: 12px 0;
+  }
+  .lead aside .meta-row {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid var(--paper-rule);
+    padding-top: 8px;
+    margin-top: 12px;
+  }
+
+  /* ---------- HEAT INDEX (vh thermometer) -------------------------- */
+  .heat-index {
+    padding: 24px 0;
+    border-bottom: 1px solid var(--paper-rule);
+  }
+  .heat-index .section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 6px;
+    margin-bottom: 14px;
+  }
+  .heat-index .section-head h2 {
+    font-family: var(--display);
+    font-weight: 900;
+    font-size: 22px;
+    margin: 0;
+    letter-spacing: -0.015em;
+  }
+  .heat-index .section-head .sub {
+    font-family: var(--sans);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--ink-mute);
+  }
+  .heat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0 48px;
+  }
+  .heat-block .group-label {
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--ink-mute);
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--paper-rule);
+    padding-bottom: 4px;
+  }
+  .heat-block table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .heat-block thead th {
+    font-family: var(--sans);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--ink-mute);
+    text-align: right;
+    padding: 4px 0;
+    font-weight: 500;
+  }
+  .heat-block thead th:first-child { text-align: left; }
+  .heat-block tbody td { padding: 5px 0; }
+  .heat-block tbody td:first-child {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: -0.01em;
+  }
+  .heat-block tbody td.bull { color: var(--bull); text-align: right; }
+  .heat-block tbody td.bear { color: var(--bear); text-align: right; }
+  .heat-block tbody td.neut { color: var(--neutral); text-align: right; }
+  .heat-block tbody tr { border-bottom: 1px dotted var(--paper-rule); }
+  .heat-block tbody tr:last-child { border-bottom: none; }
+
+  /* ---------- 3-COLUMN SECTION -------------------------------------- */
+  .triple {
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr 1px 1fr;
+    padding: 28px 0;
+    gap: 0 24px;
+    border-bottom: 1px solid var(--paper-rule);
+  }
+  .triple .rule { background: var(--paper-rule); }
+  .triple article .kicker {
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--ink-mute);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .triple article .kicker.bull { color: var(--bull); }
+  .triple article .kicker.bear { color: var(--bear); }
+  .triple article h2 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 26px;
+    line-height: 1.08;
+    margin: 0 0 12px;
+    letter-spacing: -0.015em;
+  }
+  .triple article .byline {
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--ink-mute);
+    margin-bottom: 12px;
+  }
+  .triple article p {
+    font-size: 14.5px;
+    line-height: 1.5;
+    margin: 0 0 10px;
+  }
+  .triple article p strong { font-weight: 600; }
+  .triple article .stat {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+    border-top: 1px solid var(--paper-rule);
+    padding-top: 8px;
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* ---------- DUO SECTION ------------------------------------------- */
+  .duo {
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr;
+    padding: 28px 0;
+    gap: 0 24px;
+    border-bottom: 1px solid var(--paper-rule);
+  }
+  .duo .rule { background: var(--paper-rule); }
+  .duo article .kicker {
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--ink-mute);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .duo article h2 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 32px;
+    line-height: 1.05;
+    margin: 0 0 14px;
+    letter-spacing: -0.02em;
+  }
+  .duo article p { font-size: 15px; line-height: 1.5; margin: 0 0 10px; }
+  .duo article p strong { font-weight: 600; }
+
+  /* ---------- POSITION INSET (T-001) -------------------------------- */
+  .position-inset {
+    margin: 24px 0;
+    border: 1px solid var(--ink);
+    background: rgba(22,20,15,0.025);
+    padding: 24px 32px;
+    display: grid;
+    grid-template-columns: 200px 1fr auto;
+    gap: 24px;
+    align-items: start;
+  }
+  .position-inset .corner {
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--ink-mute);
+    border-right: 1px solid var(--paper-rule);
+    padding-right: 24px;
+  }
+  .position-inset .corner .symbol {
+    font-family: var(--display);
+    font-weight: 900;
+    font-size: 36px;
+    line-height: 1;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    margin: 8px 0 4px;
+    text-transform: none;
+  }
+  .position-inset .corner .side {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--bull);
+    font-weight: 600;
+  }
+  .position-inset .body h3 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 22px;
+    margin: 0 0 8px;
+    line-height: 1.15;
+  }
+  .position-inset .body p {
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0 0 8px;
+  }
+  .position-inset .levels {
+    font-family: var(--mono);
+    font-size: 12px;
+    text-align: right;
+    border-left: 1px solid var(--paper-rule);
+    padding-left: 24px;
+  }
+  .position-inset .levels div { margin-bottom: 6px; }
+  .position-inset .levels .lbl {
+    font-family: var(--sans);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--ink-mute);
+    display: block;
+  }
+  .position-inset .levels .v { color: var(--ink); font-weight: 500; }
+  .position-inset .levels .mtm { color: var(--bull); font-weight: 600; font-size: 16px; }
+
+  /* ---------- FOOTER STRIP ----------------------------------------- */
+  .strip {
+    padding: 24px 0;
+    border-top: 1px solid var(--ink);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--ink-soft);
+    letter-spacing: 0.04em;
+  }
+  .strip .item {
+    border-left: 1px solid var(--paper-rule);
+    padding-left: 12px;
+  }
+  .strip .item:first-child { border-left: none; padding-left: 0; }
+  .strip .item .name {
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 9px;
+    color: var(--ink-mute);
+    margin-bottom: 4px;
+  }
+  .strip .item .v {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .strip .item .v.warn { color: var(--warn); }
+  .strip .item .v.bear { color: var(--bear); }
+  .strip .item .v.bull { color: var(--bull); }
+
+  footer {
+    padding: 24px 0 60px;
+    text-align: center;
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    color: var(--ink-mute);
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead container">
+  <div class="brand">PULSE<sup>v3</sup></div>
+  <div class="meta">
+    woensdag <strong>6 mei 2026</strong> · run 11 · run-as-of <strong>13:57 CEST</strong> · sensors 6/6 ✓
+  </div>
+  <div class="live-tape">
+    <span class="live-dot"></span>BTC <span class="price">$82,514.80</span> <span class="delta-up">+1.74%</span>
+    <span class="stamp">11:54:23 UTC · 15s</span>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- ALERT STACK — bewust ongewijzigd, werkt al -->
+  <section class="alert-stack" aria-label="alerts">
+    <div class="alert-banner alert-normal">
+      <span class="alert-time">13:57</span>
+      <span class="alert-msg">FET 1h flipped <strong>bear</strong> <span class="arrow">→</span> <strong>neutral</strong></span>
+      <span class="alert-x">×</span>
+    </div>
+    <div class="alert-banner alert-strong">
+      <span class="alert-time">12:42</span>
+      <span class="alert-msg">T-001 BTC LONG <strong>+3.40%</strong> · TP1 $82,906 op +0.47% (test-fire)</span>
+      <span class="alert-x">×</span>
+    </div>
+  </section>
+
+  <!-- LEAD — argument als headline -->
+  <section class="lead">
+    <div>
+      <div class="kicker">Marktstelling · downside-thesis armed</div>
+      <h1>Het plafond is <em>cement</em> geworden — drie weigerwicks<br>op identieke high.</h1>
+      <p class="deck">Funding verdiept zes settles op rij, sentiment valt terug naar Fear ondanks +1.14% op 24u, en het volume lekt onder 2.500 BTC voor de zesde cycle. Geen squeeze, geen breakout — een mechanisch begrensde range zonder katalysator, met FOMC vanavond als enige uitlaat.</p>
+      <div class="lead-body">
+        <p>BTC sluit voor de derde 4h-bar op rij <strong>onder</strong> de squeeze-trigger op $81,708.90, telkens met wick-only-no-close. Funding zakt monotoon van -0.00038% naar -0.00915% over zes settles — shorts addelen op de piek, geen squeeze-fire. F&amp;G valt 50→46 terwijl prijs op weekly nog +6.27% staat: <strong>sentiment-leads-bearish</strong>, retail-FOMO-buffer ontbreekt. Confluence is voor het eerst sinds tracking <span class="cite">0/9 BULL · 2/9 BEAR · 7/9 NEUTRAL</span>.</p>
+        <p>Drie consolidatie-grammars draaien gelijktijdig: volume-bleed (zesde cycle sub-2,5K), resistance-rejection (derde cycle), en magnet-base $79,500 (vierde cycle row). De compressie is mechanisch. Een 4h-close onder $80,000 binnen 12u opent het downside-pad; <span class="cite">12u zonder break, of close &gt;$82,228, of settle ≥-0.00005%</span> falsifieert.</p>
+      </div>
+    </div>
+    <aside>
+      <div class="label">positie-voorstel</div>
+      <h3>SHORT op breakdown</h3>
+      <p>Short alleen op 4h-close onder $80,000. Stop $80,800. Target $77,500. Risk-reward ~2.3R. Geen positie tot trigger.</p>
+      <div class="falsifier">
+        FALSIFIER · 12u zonder $80K-break<br>
+        OR · 4h-close ≥ $82,228<br>
+        OR · funding-settle ≥ -0.00005%
+      </div>
+      <div class="meta-row">
+        <span>FOMC</span><span>vandaag 18:30Z</span>
+      </div>
+      <div class="meta-row">
+        <span>CPI</span><span>12 mei · T-6d</span>
+      </div>
+    </aside>
+  </section>
+
+  <!-- HEAT INDEX — thermometer hertaald -->
+  <section class="heat-index">
+    <div class="section-head">
+      <h2>Heat Index</h2>
+      <span class="sub">live · gemeten tegen anker · drempels 0.5 / 1 / 2 / 5%</span>
+    </div>
+    <div class="heat-grid">
+      <div class="heat-block">
+        <div class="group-label">Majors</div>
+        <table>
+          <thead><tr><th>Asset</th><th>1h</th><th>4h</th><th>24h</th><th>7d</th></tr></thead>
+          <tbody>
+            <tr><td>BTC</td><td class="neut">+0.21</td><td class="neut">+0.84</td><td class="bull">+1.74</td><td class="bull">+6.27</td></tr>
+            <tr><td>ETH</td><td class="neut">+0.41</td><td class="bull">+2.02</td><td class="neut">+1.81</td><td class="bear">−5.81</td></tr>
+            <tr><td>SOL</td><td class="bull">+0.52</td><td class="bull">+2.38</td><td class="bull">+5.82</td><td class="neut">+3.10</td></tr>
+            <tr><td>HYPE</td><td class="neut">+0.18</td><td class="bull">+1.74</td><td class="bull">+3.09</td><td class="bull">+8.40</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="heat-block">
+        <div class="group-label">Alts</div>
+        <table>
+          <thead><tr><th>Asset</th><th>1h</th><th>4h</th><th>24h</th><th>7d</th></tr></thead>
+          <tbody>
+            <tr><td>ZEC</td><td class="bull">+0.94</td><td class="bull">+4.30</td><td class="bull">+35.69</td><td class="bull">+76.40</td></tr>
+            <tr><td>TAO</td><td class="neut">−0.12</td><td class="neut">−0.58</td><td class="neut">−4.92</td><td class="neut">+1.20</td></tr>
+            <tr><td>FET</td><td class="bear">−0.60</td><td class="neut">+0.40</td><td class="bull">+2.77</td><td class="neut">+0.10</td></tr>
+            <tr><td>FARTCOIN</td><td class="neut">+0.30</td><td class="neut">−2.95</td><td class="bull">+6.43</td><td class="bear">−12.20</td></tr>
+            <tr><td>PUMP</td><td class="neut">+0.20</td><td class="neut">+1.20</td><td class="neut">+1.40</td><td class="bear">−18.30</td></tr>
+            <tr><td>MINA</td><td class="bear">−0.80</td><td class="bear">−1.40</td><td class="bear">−3.10</td><td class="bear">−9.70</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- POSITION INSET — T-001 -->
+  <section class="position-inset">
+    <div class="corner">
+      <div>open positie</div>
+      <div class="symbol">T-001</div>
+      <div class="side">BTC LONG</div>
+    </div>
+    <div class="body">
+      <h3>Grind-up speelt door, $407 onder TP1.</h3>
+      <p>Entry $78,608 op 1 mei 16:30Z, mark $82,514, MTM-rendement <strong>+4.97%</strong>. Stoploss schuift mee met 1H 200 EMA — nu $78,841, +$607 trail-up sinds vorige run. Volume 2.110 BTC bevestigt full-conviction-band. Geen pyramiding ondanks LONG-trigger pass: één setup, één maat.</p>
+      <p>Dag 5 van 14, expiry 15 mei. Naderende TP1 $82,906 = +0.47%, TP2 $84,000 = +1.80%.</p>
+    </div>
+    <div class="levels">
+      <div class="mtm">+4.97%</div>
+      <div><span class="lbl">entry</span><span class="v">$78,608</span></div>
+      <div><span class="lbl">mark</span><span class="v">$82,514</span></div>
+      <div><span class="lbl">tp1</span><span class="v">$82,906</span></div>
+      <div><span class="lbl">tp2</span><span class="v">$84,000</span></div>
+      <div><span class="lbl">sl</span><span class="v">$78,841</span></div>
+      <div><span class="lbl">expiry</span><span class="v">15 mei</span></div>
+    </div>
+  </section>
+
+  <!-- TRIPLE SECTION — confluence | macro | anti-fragile -->
+  <section class="triple">
+    <article>
+      <div class="kicker bear">Confluence · NO_EDGE</div>
+      <h2>Voor het eerst sinds tracking: <em>0/9 bullish</em>.</h2>
+      <div class="byline">cycle 11 · 0/9 BULL · 2/9 BEAR · 7/9 NEUTRAL</div>
+      <p>Drie consolidatie-grammars tikken synchroon: volume-bleed sub-2,5K (6e row), 4h-rejection-wick onder $81,708.90 (3e row), magnet-base $79,500 (4e row). <strong>Mechanisch gebonden range</strong> — geen entry, geen Telegram.</p>
+      <div class="stat"><span>edge-score</span><span>0/9</span></div>
+    </article>
+    <div class="rule"></div>
+    <article>
+      <div class="kicker">Macro · risk-on sticky</div>
+      <h2>Goud breekt $4,500 zonder DXY-trigger — endogene safe-haven bid.</h2>
+      <div class="byline">DXY 98.39 · 10Y 4.43% · TIPS 1.90 · F&amp;G 46</div>
+      <p>+$73 op gold met DXY drift -$0.22, geen real-rate druk, geen VIX-spike. R42-thesis "rotatie defensief→beta" is <strong>gefalsifieerd-invers</strong>. Residu-kandidaten: CB-aankopen Q1, ME safe-haven, pre-CPI hedging.</p>
+      <div class="stat"><span>FOMC T-0</span><span>18:30Z</span></div>
+    </article>
+    <div class="rule"></div>
+    <article>
+      <div class="kicker bull">Anti-fragile · #45 proven-late</div>
+      <h2>ETH FR-cap-flip squeeze plaatste op 4–8u, niet 0–4u.</h2>
+      <div class="byline">cycle C153 · NO_OPEN_TRADE · #22 N=4</div>
+      <p>FR-mean-revert koppelt aan price-mean-revert op <strong>4–8u lag</strong>, niet 0–4u. C152-conclusie ("decoupled") was horizon-error. Forward-test FR-axioms op 8u. #51 ETH 5-validator confluence is eerste schone candidate voor stack-fire.</p>
+      <div class="stat"><span>repo_cycle</span><span>33 · DEAD 22d</span></div>
+    </article>
+  </section>
+
+  <!-- DUO SECTION — watchlist + MA200 -->
+  <section class="duo">
+    <article>
+      <div class="kicker">Watchlist · concentrated</div>
+      <h2>ZEC re-explosion cycle 12 — derde modus naast mirror-fade en followthrough.</h2>
+      <p>ZEC cycle 12 +1.99% met 24h% +23.08% nog uitbreidend = <strong>post-explosion-cycle-2-default</strong> (Les 148-kandidaat). Magnitude-decay -90% vs cycle 11, maar window blijft groeien. Trail $480 (van $475, naar bodem $416 + buffer).</p>
+      <p>TAO cycle 11 break uit 5-cycle stuck was 1-cycle-tease — cycle 12 -4.92% volledig binnen vorige range. Les 142 challenged.</p>
+    </article>
+    <div class="rule"></div>
+    <article>
+      <div class="kicker bear">MA200 · #25 · top-tell armed</div>
+      <h2>Eerste 1H Δ &lt; 0 voor ZEC sinds parabolic start. Distributie-cascade stap 1.</h2>
+      <p>Plus eerste 2D Δ ooit negatief voor ZEC (-2.09, grootste decline van alle tickers). 12H +0.94 = restmomentum, <strong>laatste die moet kantelen</strong> voor full cascade. Sensor leest exhaustion beter dan impulse: 2/4 falsifier-tally bevestigde negatieve voorspellingen.</p>
+      <p>BTC up-leg-naar-EMA gefalsifieerd (drift -0.49pp van +1.93). ETH/BTC 0.02913, 31e iter sub-0.030, distance -28% closer naar 0.029 = breakdown-imminent-resumes.</p>
+    </article>
+  </section>
+
+  <!-- SENSOR-STRIP -->
+  <section class="strip">
+    <div class="item"><div class="name">enrichment</div><div class="v bull">FLOWING</div></div>
+    <div class="item"><div class="name">infra · M4 daemon</div><div class="v bull">LIVE</div></div>
+    <div class="item"><div class="name">nest-seo · ahrefs</div><div class="v">DR 14 · units 11.9k/400k</div></div>
+    <div class="item"><div class="name">cortex · whoop</div><div class="v warn">DOOD · OAuth</div></div>
+    <div class="item"><div class="name">backtest</div><div class="v bear">H_AND_BREAK_FUND REFUTED N=141</div></div>
+    <div class="item"><div class="name">telegram bot</div><div class="v warn">401 · N=11</div></div>
+    <div class="item"><div class="name">ahrefs MCP</div><div class="v">reset 5/8</div></div>
+    <div class="item"><div class="name">Hyblock OAuth</div><div class="v warn">DOOD · N=17</div></div>
+  </section>
+
+  <footer>
+    Pulse · intelligence cockpit · build feat/live-layer · Luxwoude
+  </footer>
+
+</main>
+</body>
+</html>
