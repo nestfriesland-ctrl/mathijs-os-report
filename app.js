@@ -872,6 +872,13 @@ async function renderGraph() {
 
 function navigate(hash) { window.location.hash = hash; }
 
+function recordView(katern, sensor) {
+  if (window.PulseObserver) {
+    try { window.PulseObserver.record(katern, 'view', sensor); }
+    catch (e) { /* observer is best-effort, never fail navigation */ }
+  }
+}
+
 function handleRoute() {
   const hash = window.location.hash.slice(1) || 'dashboard';
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -881,6 +888,7 @@ function handleRoute() {
     document.getElementById('dashboard-view').classList.add('active');
     const link = document.querySelector('[data-view="dashboard"]');
     if (link) link.classList.add('active');
+    recordView('dashboard');
     return;
   }
   if (hash === 'graph') {
@@ -888,11 +896,13 @@ function handleRoute() {
     const link = document.querySelector('[data-view="graph"]');
     if (link) link.classList.add('active');
     renderGraph();
+    recordView('graph');
     return;
   }
   if (hash.startsWith('doc/')) {
     document.getElementById('document-view').classList.add('active');
     renderDocument(hash.slice(4));
+    recordView('doc', hash.slice(4));
     return;
   }
   // Katern routes: #<katern> en #<katern>/<sensor>
@@ -907,12 +917,14 @@ function handleRoute() {
         // — translate terug naar file-naam (`machinekamer`) voor fetch.
         document.getElementById('document-view').classList.add('active');
         renderDocument(`sensors/${fileSensor(sensor)}.md`);
+        recordView(katern, sensor);
       } else {
         // Laag 2 — katern-voorpagina.
         document.getElementById('katern-view').classList.add('active');
         const link = document.querySelector(`[data-view="${katern}"]`);
         if (link) link.classList.add('active');
         renderKatern(katern);
+        recordView(katern);
       }
       return;
     }
@@ -937,6 +949,7 @@ async function init() {
   if (window.Thermometers) {
     window.Thermometers.mountThermometers(document.getElementById('heat-grid'));
   }
+  if (window.PulseObserver) window.PulseObserver.start();
 
   try {
     await fetchTree();
