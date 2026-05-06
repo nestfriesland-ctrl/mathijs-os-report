@@ -1,5 +1,9 @@
-// PULSE — Wiki renderer + sensor dashboard
-// Zero dependencies (d3 + marked from CDN)
+// PULSE — krant-laag dashboard renderer
+// API layer, registry parsing, sensor parsers, document/graph views, and the
+// live-tick loop are unchanged from feat/live-layer. What changed: the
+// dashboard rendering is now an editorial dispatcher that maps each visible
+// sensor onto a fixed slot (lead / fg-band / heat-index / position-inset /
+// triple / duo / strip), instead of a 12-column generic grid.
 
 const API = '/api/wiki';
 const REGISTRY_PATH = 'operations/sensor-registry.md';
@@ -7,29 +11,9 @@ const REGISTRY_PATH = 'operations/sensor-registry.md';
 let tree = null;
 let cache = {};
 let registry = null;
-let sensors = [];
 
-// Live layer state — last-parsed thesis-trader (so alerts can check
-// SL/TP/expiry against live BTC price), and latest tickers + anchors.
-let liveTrade   = null;
 let liveTickers = null;
 let liveAnchors = null;
-
-// --- Sensor roles: layout + renderer choice ------------------------------
-// Group order = visual row order. Each group renders as its own 12-col row.
-// Sensors not listed default to { group: 'research', span: 3, renderer: 'generic' }.
-const SENSOR_ROLES = {
-  'thesis-trader': { group: 'top', span: 4, renderer: 'thesis-trader', label: 'thesis-trader' },
-  'market':        { group: 'top', span: 4, renderer: 'market',        label: 'market' },
-  'anti-fragile':  { group: 'top', span: 4, renderer: 'anti-fragile',  label: 'anti-fragile' },
-  'watchlist':     { group: 'mid', span: 6, renderer: 'watchlist',     label: 'watchlist' },
-  'nest-seo':      { group: 'mid', span: 6, renderer: 'nest-seo',      label: 'nest-seo' },
-  'infra':         { group: 'ops', span: 4, renderer: 'infra',         label: 'infra' },
-  'enrichment':    { group: 'ops', span: 4, renderer: 'enrichment',    label: 'enrichment' },
-  'machinekamer':  { group: 'ops', span: 4, renderer: 'generic',       label: 'machinekamer' },
-};
-const GROUP_ORDER = ['top', 'mid', 'ops', 'research'];
-const DEFAULT_ROLE = { group: 'research', span: 3, renderer: 'generic' };
 
 // --- API layer -----------------------------------------------------------
 
@@ -63,11 +47,6 @@ async function fetchSensorListing() {
 }
 
 // --- Sensor registry parsing --------------------------------------------
-// Extract { sensorStem -> { verdict, status } } from operations/sensor-registry.md.
-// The registry uses h3 headings like "### infra-sensor" and bullet lines
-// "- **Oordeel:** WAARDE-BEWEZEN ...". Some entries also use "- **Status:** GEARCHIVEERD".
-// Match by stripping common suffixes (-sensor, -monitor, -cycle) so file names
-// like "infra" map to "infra-sensor".
 
 const REGISTRY_NAME_OVERRIDES = {
   'anti-fragile': 'anti-fragile-sensor',
@@ -101,8 +80,6 @@ async function fetchRegistry() {
     const body = raw.slice(start, end);
     const verdictMatch = body.match(/\*\*Oordeel:\*\*\s*([A-Z\-]+)/);
     const statusMatch = body.match(/\*\*Status:\*\*\s*([A-Z\-]+)/);
-    // Strip parenthetical descriptors like "machinekamer (META)" or
-    // "cortex (Whoop N=1)" so the key matches the file stem.
     const baseName = matches[i].name.split(/\s*\(/)[0].trim();
     const key = stripSensorSuffix(baseName).toLowerCase();
     registry[key] = {
@@ -124,8 +101,6 @@ function lookupRegistry(sensorName) {
   return registry[sensorName] || null;
 }
 
-// Decide whether a sensor should appear at all. Hide GEARCHIVEERD and
-// KANDIDAAT-VERWIJDERING (cortex, travel) per brief.
 function shouldDisplay(sensorName) {
   const reg = lookupRegistry(sensorName);
   if (!reg) return true;
@@ -135,35 +110,20 @@ function shouldDisplay(sensorName) {
   return true;
 }
 
-function prominenceClass(sensorName) {
-  const reg = lookupRegistry(sensorName);
-  if (!reg) return '';
-  if (reg.verdict === 'WAARDE-BEWEZEN') return 'prom-proven';
-  if (reg.verdict === 'ONBEWEZEN') return 'prom-unproven';
-  if (reg.verdict === 'META' || reg.verdict === 'META-SENSOR') return 'prom-meta';
-  return '';
-}
-
-// --- Sensor meta parsing -------------------------------------------------
+// --- Sensor meta + parsing ----------------------------------------------
 
 function parseSensorMeta(content) {
   const meta = { lastUpdated: null, hoursAgo: null, status: 'unknown', notDeployed: false };
-
   if (/^[>\s]*status:\s*NOT[_ ]DEPLOYED/mi.test(content)) {
     meta.notDeployed = true;
     return meta;
   }
-
-  // last_updated: matches both YAML frontmatter and `> last_updated:` quote forms.
   let tsMatch = content.match(/^[>\s-]*last_updated:\s*([^\n]+)/mi);
   if (!tsMatch) {
-    // Anti-fragile-style: "**Cycle:** 153 (6 May 2026 ~10:00 UTC)" — pull date
-    // out of the parenthetical so the freshness badge still works.
     const parenDate = content.match(/\*\*Cycle:\*\*[^\(]*\((\d{1,2}\s+\w+\s+\d{4}[^)]*)\)/);
     if (parenDate) tsMatch = [null, parenDate[1].replace(/~/, '')];
   }
   if (!tsMatch) {
-    // Thesis-trader-style: "**Run:** 2026-05-06 (UTC) | ..."
     const runMatch = content.match(/\*\*Run:\*\*\s*(\d{4}-\d{2}-\d{2})/);
     if (runMatch) tsMatch = [null, runMatch[1]];
   }
@@ -180,750 +140,334 @@ function parseSensorMeta(content) {
       }
     } catch (e) { /* invalid date */ }
   }
-
   if (meta.hoursAgo !== null) {
     meta.status = meta.hoursAgo < 4 ? 'fresh' : meta.hoursAgo < 12 ? 'stale' : 'down';
   }
-
   return meta;
 }
 
-// --- Generic parsers (Machinekamer protocol) -----------------------------
-
 function parseRegime(content) {
-  // Quoted form: "> regime: RALLY". Frontmatter form: "regime: RALLY".
   let m = content.match(/^>\s*regime:\s*(.+)/mi);
   if (m) return m[1].trim();
   m = content.match(/^regime:\s*(.+)/mi);
   if (m) return m[1].trim();
-  // Anti-fragile style: "**State:** NO_NEW_FIRE / ..." — first segment.
   m = content.match(/\*\*State:\*\*\s*([^\/\n]+)/);
   if (m) return m[1].trim();
   return null;
 }
 
 function parseKrant(content) {
+  if (!content) return { hasKrant: false };
   const krant = {};
   const stellingMatch = content.match(/\*\*Stelling:\*\*\s*(.+)/);
   const bewijsMatch = content.match(/\*\*Bewijs:\*\*\s*([\s\S]*?)(?=\n\*\*Les:|\n\*\*Actie:|\n##)/);
   const lesMatch = content.match(/\*\*Les:\*\*\s*(.+)/);
   const actieMatch = content.match(/\*\*Actie:\*\*\s*(.+)/);
-
   krant.stelling = stellingMatch ? stellingMatch[1].trim() : null;
   krant.bewijs = bewijsMatch ? bewijsMatch[1].trim() : null;
   krant.les = lesMatch ? lesMatch[1].trim() : null;
   krant.actie = actieMatch ? actieMatch[1].trim() : null;
-
   const vorigeMatch = content.match(/\*\*Vorige stelling:\*\*\s*(.+)/);
   const uitkomstMatch = content.match(/\*\*Uitkomst:\*\*\s*(\w+)/);
   const toelichtingMatch = content.match(/\*\*Toelichting:\*\*\s*(.+)/);
-
   krant.vorigeStelling = vorigeMatch ? vorigeMatch[1].trim() : null;
   krant.uitkomst = uitkomstMatch ? uitkomstMatch[1].trim() : null;
   krant.toelichting = toelichtingMatch ? toelichtingMatch[1].trim() : null;
-
   krant.hasKrant = !!(krant.stelling || krant.les);
   return krant;
 }
 
-function renderKrantSection(krant) {
-  if (!krant.hasKrant) return '';
+// --- Shared utilities for component renderers ---------------------------
 
-  const uitkomstClass = krant.uitkomst === 'BEVESTIGD' ? 'pos'
-    : krant.uitkomst === 'WEERLEGD' ? 'neg' : 'neutral';
-
-  const preview = krant.stelling
-    ? krant.stelling.substring(0, 70) + (krant.stelling.length > 70 ? '...' : '')
-    : '';
-
-  return `
-    <div class="krant-section" onclick="event.stopPropagation(); this.classList.toggle('krant-open')">
-      <div class="krant-toggle">▸ ${preview || 'Krant'}</div>
-      <div class="krant-body">
-        ${krant.stelling ? `<div class="krant-row"><span class="krant-label">Stelling</span><span class="krant-value">${krant.stelling}</span></div>` : ''}
-        ${krant.bewijs ? `<div class="krant-row"><span class="krant-label">Bewijs</span><span class="krant-value">${krant.bewijs}</span></div>` : ''}
-        ${krant.les ? `<div class="krant-row krant-les"><span class="krant-label">Les</span><span class="krant-value">${krant.les}</span></div>` : ''}
-        ${krant.actie ? `<div class="krant-row"><span class="krant-label">Actie</span><span class="krant-value">${krant.actie}</span></div>` : ''}
-        ${krant.vorigeStelling ? `
-          <div class="krant-terugblik">
-            <div class="krant-row"><span class="krant-label">Vorige</span><span class="krant-value">${krant.vorigeStelling}</span></div>
-            <div class="krant-row"><span class="krant-label">Uitkomst</span><span class="krant-value ${uitkomstClass}">${krant.uitkomst || '—'}</span></div>
-            ${krant.toelichting ? `<div class="krant-row"><span class="krant-label"></span><span class="krant-value krant-dim">${krant.toelichting}</span></div>` : ''}
-          </div>` : ''}
-      </div>
-    </div>
-  `;
-}
-
-function regimeColor(regime) {
-  if (!regime) return 'regime-unknown';
-  const r = regime.toLowerCase();
-  if (['rally','nominal','flowing','growing','validated','rotation','risk-on','bullish_bias','bullish-bias'].some(p => r.startsWith(p))) return 'regime-pos';
-  if (['correction','capitulation','down','stalled','declining','falsified','bearish','dead_cycle','degraded'].some(p => r.startsWith(p))) return 'regime-neg';
-  return 'regime-neutral';
-}
-
-// --- Sensor-specific parsers --------------------------------------------
-
-function stripTags(s) {
-  return s ? s.replace(/\s*\[[A-Z]+\]/g, '').trim() : s;
-}
-
-function colorClass(val) {
-  if (!val) return '';
-  return val.startsWith('-') ? 'neg' : 'pos';
-}
-
-function shortFunding(s) {
-  if (!s) return null;
-  // Look for a real funding rate: signed decimal (with ".") or scientific
-  // notation, optionally with %. Skip bare integers (avoids matching "5"
-  // from "settle 5/6").
-  const m = s.match(/(-?\d+\.\d+(?:e-?\d+)?%?)/);
-  if (m) return m[1];
-  const pct = s.match(/(-?\d+%)/);
-  return pct ? pct[1] : truncate(s, 14);
-}
-
-function parseMarket(content) {
-  const tableRows = [];
-  const tableRe = /^\|\s*(BTC|ETH)\s*\|\s*\$?([0-9,]+(?:\.[0-9]+)?)\s*\|\s*([+-]?[0-9.]+%)\s*\|\s*([+-]?[0-9.]+%)\s*\|\s*(-?[0-9.]+%)\s*\|/gm;
-  let m;
-  while ((m = tableRe.exec(content)) !== null) {
-    tableRows.push({ asset: m[1], price: m[2], d24h: m[3], d7d: m[4], ath: m[5] });
+window.PulseUtil = (function () {
+  function escape(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
   }
 
-  if (tableRows.length > 0) {
-    const btc = tableRows.find(r => r.asset === 'BTC');
-    const eth = tableRows.find(r => r.asset === 'ETH');
-    const fgMatch = content.match(/Fear & Greed:\s*(\d+)\s*\(([^)]+)\)/);
-    const domMatch = content.match(/BTC Dominance:\s*([0-9.]+)%/);
-    const fundingMatch = content.match(/Funding:\s*([^\n]+)/);
-    const macroMatch = content.match(/Macro:\s*([^\n]+)/);
-
-    return {
-      btcPrice: btc ? btc.price : null,
-      btc24h: btc ? btc.d24h : null,
-      btc7d: btc ? btc.d7d : null,
-      btcAthDist: btc ? btc.ath : null,
-      ethPrice: eth ? eth.price : null,
-      eth24h: eth ? eth.d24h : null,
-      ethAthDist: eth ? eth.ath : null,
-      fearGreed: fgMatch ? { score: fgMatch[1], label: fgMatch[2] } : null,
-      dominance: domMatch ? domMatch[1] : null,
-      funding: fundingMatch ? shortFunding(stripTags(fundingMatch[1])) : null,
-      macro: macroMatch ? truncate(stripTags(macroMatch[1]), 140) : null,
-    };
+  function trimSentence(s, max) {
+    if (!s) return null;
+    let out = s.trim();
+    const firstSentence = out.match(/^[^.]+\./);
+    if (firstSentence) out = firstSentence[0].trim();
+    if (out.length > max) out = out.slice(0, max - 1).replace(/\s+\S*$/, '') + '…';
+    return out;
   }
 
-  // Fallback: old inline format
-  const btcMatch = content.match(/BTC:\s*\$([0-9,]+)\s*\|\s*24h:\s*([+-][0-9.]+%)/);
-  const ethMatch = content.match(/ETH:\s*\$([0-9,]+)\s*\|\s*24h:\s*([+-][0-9.]+%)/);
-  const btcAthMatch = content.match(/ATH afstand:\s*(-[0-9.]+%)/);
-  const macroMatch2 = content.match(/Macro:\s*([^\n]+)/);
+  // Stelling is verbose ("Regime = X — claim. Bevestiging: ... Falsificatie: ...").
+  // Headline: shape into one short editorial sentence.
+  function shapeHeadline(stelling) {
+    if (!stelling) return null;
+    let s = stelling.trim();
+    // Skip "Regime = X — " prefix when present so the claim itself surfaces.
+    const dashIdx = s.indexOf('—');
+    if (dashIdx >= 0 && dashIdx < 80) s = s.slice(dashIdx + 1).trim();
+    // Strip trailing Bevestiging/Falsificatie sub-clauses.
+    s = s.replace(/(Bevestiging|Falsificatie|Pro|Tegen)[:\-].+$/, '').trim();
+    return trimSentence(s, 140);
+  }
 
-  return {
-    btcPrice: btcMatch ? btcMatch[1] : null,
-    btc24h: btcMatch ? btcMatch[2] : null,
-    btc7d: null,
-    btcAthDist: btcAthMatch ? btcAthMatch[1] : null,
-    ethPrice: ethMatch ? ethMatch[1] : null,
-    eth24h: ethMatch ? ethMatch[2] : null,
-    ethAthDist: null,
-    fearGreed: null,
-    dominance: null,
-    funding: null,
-    macro: macroMatch2 ? truncate(stripTags(macroMatch2[1]), 140) : null,
-  };
-}
+  function shapeDeck(bewijs) {
+    if (!bewijs) return null;
+    let s = bewijs.trim().replace(/^(Pro|Tegen)[:\-]\s*/i, '');
+    return trimSentence(s, 240);
+  }
 
-function truncate(s, n) {
-  if (!s) return s;
-  return s.length > n ? s.substring(0, n - 1) + '…' : s;
-}
+  function shapeBody(les, actie) {
+    const parts = [];
+    if (les) parts.push(`<p>${escape(trimSentence(les, 600) || les)}</p>`);
+    if (actie) parts.push(`<p><strong>Actie.</strong> ${escape(trimSentence(actie, 400) || actie)}</p>`);
+    return parts.join('') || `<p class="dim">Geen krant-data.</p>`;
+  }
 
-function parseInfra(content) {
-  const sitesMatch = content.match(/SITES:\s*(.+)/m);
-  const deploysMatch = content.match(/DEPLOYS:\s*(.+)/m);
-  const gitMatch = content.match(/GIT:\s*(.+)/m);
-  const bridgeMatch = content.match(/M4-BRIDGE:\s*(.+)/m);
-
-  const sites = [];
-  if (sitesMatch) {
-    for (const part of stripTags(sitesMatch[1]).split('|')) {
-      const m = part.trim().match(/^(\S+)\s+(\d{3})$/);
-      if (m) sites.push({ name: m[1], code: parseInt(m[2]) });
+  function shapeTripleBody(les, actie, content) {
+    if (les || actie) {
+      let h = '';
+      if (les) h += `<p>${escape(trimSentence(les, 280) || les)}</p>`;
+      if (actie) h += `<p><strong>Actie.</strong> ${escape(trimSentence(actie, 220) || actie)}</p>`;
+      return h;
     }
-  }
-
-  const deploys = [];
-  if (deploysMatch) {
-    for (const part of stripTags(deploysMatch[1]).split('|')) {
-      const m = part.trim().match(/^(\S+)\s+(\w+)/);
-      if (m) deploys.push({ name: m[1], status: m[2] });
+    if (content) {
+      const firstPara = content.split(/\n\n/).find(p => {
+        const t = p.trim();
+        return t && !t.startsWith('#') && !t.startsWith('---')
+          && !t.startsWith('>') && !t.startsWith('|')
+          && !/^\*\*(State|Cycle|Run|Status):/.test(t);
+      });
+      if (firstPara) {
+        const stripped = firstPara.replace(/\*\*/g, '').trim();
+        const trimmed = stripped.length > 280 ? stripped.slice(0, 277) + '…' : stripped;
+        return `<p>${escape(trimmed)}</p>`;
+      }
     }
+    return `<p class="dim">Geen data.</p>`;
   }
 
-  return {
-    sites,
-    deploys,
-    git: gitMatch ? truncate(stripTags(gitMatch[1]), 160) : null,
-    bridge: bridgeMatch ? stripTags(bridgeMatch[1]) : null,
-  };
-}
-
-function parseNestSeo(content) {
-  const drMatch = content.match(/DR:\s*([0-9.]+)/);
-  // "Ref domains: 46 (live) / 71 (all-time)"
-  const refMatch = content.match(/Ref domains:\s*(\d+)\s*\(?\s*live\)?/i);
-  // "Live backlinks: 668" (new) or "Backlinks: 668 live" (old).
-  const blMatch = content.match(/Live backlinks:\s*(\d+)/i)
-    || content.match(/Backlinks:\s*(\d+)\s*live/i);
-  const trendMatch = content.match(/Trend:\s*(.+)/);
-
-  const backlinkRows = [];
-  // Format: "domain | DR XX | (number )?(do|no)follow | YYYY-MM-DD"
-  // Examples:
-  //   "thehighrankseo.shop | DR 35 | nofollow | 2026-05-05 [HARD]"
-  //   "provenexpert.com | DR 91 | 1 dofollow | 2026-04-30"
-  const re = /^([a-z0-9.-]+\.[a-z]+)\s*\|\s*DR\s*(\d+)\s*\|\s*(?:(\d+)\s*)?(\w+follow)\s*\|\s*([0-9-]+)/gmi;
-  let m;
-  while ((m = re.exec(content)) !== null) {
-    backlinkRows.push({
-      domain: m[1],
-      dr: m[2],
-      count: m[3] || '—',
-      type: m[4],
-      date: m[5].trim(),
-    });
-  }
-
-  return {
-    dr: drMatch ? drMatch[1] : null,
-    refDomains: refMatch ? refMatch[1] : null,
-    backlinks: blMatch ? blMatch[1] : null,
-    backlinkRows: backlinkRows.slice(0, 5),
-    trend: trendMatch ? stripTags(trendMatch[1]) : null,
-  };
-}
-
-// Enrichment now uses a per-tenant table. Extract the SKYLD row + delta.
-function parseEnrichment(content) {
-  const tenants = [];
-  // | SKYLD  | 5490      | +144  | 0       | 9m geleden        | 20/20    |
-  const tableRe = /^\|\s*(SKYLD|SANND|NEST)\s*\|\s*(\d+)\s*\|\s*([+-]?\d+)\s*\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/gm;
-  let m;
-  while ((m = tableRe.exec(content)) !== null) {
-    tenants.push({
-      tenant: m[1],
-      filled: m[2],
-      delta: m[3],
-      backlog: m[4],
-      lastEnriched: m[5].trim(),
-    });
-  }
-
-  const lastHourMatch = content.match(/Writes laatste uur:\s*SKYLD=(\d+)/);
-  const last6hMatch = content.match(/Writes laatste 6u:\s*SKYLD=(\d+)/);
-
-  return {
-    tenants,
-    skyldLastHour: lastHourMatch ? lastHourMatch[1] : null,
-    skyldLast6h: last6hMatch ? last6hMatch[1] : null,
-  };
-}
-
-function parseWatchlist(content) {
-  const assets = [];
-  // Tolerant column 6 (volume) — accepts "1.96K", "366.07M", "—".
-  const tableRe = /^\|\s*([A-Z]+)\s*\|\s*(\S+)\s*\|\s*([+-][0-9.]+%|—|-)\s*\|\s*(\S+)\s*\|\s*(\S+)\s*\|\s*(\S+)\s*\|/gm;
-  let m;
-  while ((m = tableRe.exec(content)) !== null) {
-    if (m[1] === 'Asset') continue;
-    const deltaStr = m[3];
-    const deltaNum = parseFloat(deltaStr.replace('%', '').replace('+', ''));
-    assets.push({
-      asset: m[1],
-      price: m[2],
-      delta: deltaStr,
-      deltaNum: isNaN(deltaNum) ? 0 : deltaNum,
-      high: m[4],
-      low: m[5],
-      volume: m[6],
-    });
-  }
-
-  const signals = [];
-  const signalsMatch = content.match(/## Signalen\n([\s\S]*?)(?:\n##|$)/);
-  if (signalsMatch) {
-    for (const line of signalsMatch[1].split('\n')) {
-      const s = line.replace(/^-\s*/, '').trim();
-      if (s) signals.push(truncate(s, 220));
+  function shapeBodyParagraph() {
+    for (let i = 0; i < arguments.length; i++) {
+      const s = arguments[i];
+      if (!s) continue;
+      const trimmed = s.length > 320 ? s.slice(0, 317).replace(/\s+\S*$/, '') + '…' : s;
+      return `<p>${escape(trimmed)}</p>`;
     }
+    return '';
   }
 
-  return { assets, signals: signals.slice(0, 4) };
-}
-
-function parseAntiFrag(content) {
-  // New format uses **Cycle:** 153 (...) and **State:** NO_NEW_FIRE / ...
-  const cycleMatch = content.match(/\*\*Cycle:\*\*\s*([^\n]+)/)
-    || content.match(/[Cc]ycle[:\s#]+([^\n]+)/);
-  const stateMatch = content.match(/\*\*State:\*\*\s*([^\n]+)/);
-  const tradeMatch = content.match(/##\s+Trade events\s*\n+([^\n]+)/);
-  // Pull BTC row from tickers table for a quick price reference.
-  const btcRow = content.match(/^\|\s*BTC\s*\|\s*\$?([0-9.,]+)\s*\|\s*([+-][0-9.,]+%?)\s*\|\s*([+-][0-9.,]+%?)/m);
-  return {
-    cycle: cycleMatch ? truncate(cycleMatch[1].trim(), 80) : null,
-    state: stateMatch ? truncate(stateMatch[1].trim(), 200) : null,
-    trade: tradeMatch ? truncate(tradeMatch[1].trim(), 140) : null,
-    btcPrice: btcRow ? btcRow[1] : null,
-    btc4h: btcRow ? btcRow[2] : null,
-    btc24h: btcRow ? btcRow[3] : null,
-  };
-}
-
-function parseThesisTrader(content) {
-  // "**Run:** 2026-05-06 (UTC) | **Status:** TRADE LIVE — geen actie"
-  const statusMatch = content.match(/\*\*Status:\*\*\s*([^\n|]+)/);
-  // "BTC: $82,076.36 (24h high $82,074 / low $80,685)"
-  const priceMatch = content.match(/^-?\s*BTC:\s*\$([0-9,.]+)/m);
-  // Open trade block — pull the bullets we care about.
-  const openBlock = content.match(/##\s+Open trade\s+(\S+)[^\n]*\n([\s\S]+?)(?=\n##\s|$)/i);
-  let trade = null;
-  if (openBlock) {
-    const id = openBlock[1];
-    const body = openBlock[2];
-    const entry = body.match(/Entry:\s*\$?([0-9,.]+)\s*@\s*([^\n|]+)\|\s*leeftijd:\s*([^\n]+)/);
-    const mtm = body.match(/MTM\s+\*?\*?([+\-][0-9.,]+%)\s*\/\s*([+\-][0-9.,]+R)/);
-    const tp1 = body.match(/TP1\s+\$?([0-9,.]+)[:\s]+\$?([0-9,.]+)\s+verwijderd[^\n]*?\(([~0-9.%-]+)\)/);
-    const tp2 = body.match(/TP2\s+\$?([0-9,.]+)[:\s]+\$?([0-9,.]+)\s+verwijderd/);
-    // SL line example:
-    // "SL (4h close < 1H 200 EMA $78.920): VEILIG, $3.157 buffer"
-    // Pull the dollar value (last $X.XXX in the parenthetical) and the status word after `):`.
-    const sl = body.match(/SL[^\n]*?\$([0-9.,]+)[^\n]*\):\s*([A-Z]+)(?:[^\n]*?\$([0-9.,]+)\s*buffer)?/);
-    const expiry = body.match(/Expiry\s+([\d\-]+):\s*(\d+\s*dagen)/);
-    trade = {
-      id,
-      direction: (openBlock[0].match(/(LONG|SHORT)/) || [])[1] || null,
-      entryPrice: entry ? entry[1] : null,
-      entryWhen: entry ? entry[2].trim() : null,
-      age: entry ? entry[3].trim() : null,
-      mtmPct: mtm ? mtm[1] : null,
-      mtmR: mtm ? mtm[2] : null,
-      tp1: tp1 ? { price: tp1[1], distance: tp1[2], pct: tp1[3] } : null,
-      tp2: tp2 ? { price: tp2[1], distance: tp2[2] } : null,
-      sl: sl ? { price: sl[1], status: sl[2], buffer: sl[3] || null } : null,
-      expiry: expiry ? { date: expiry[1], daysLeft: expiry[2] } : null,
-    };
-  }
-  return {
-    status: statusMatch ? statusMatch[1].trim() : null,
-    price: priceMatch ? priceMatch[1] : null,
-    trade,
-  };
-}
-
-// --- Card renderers ------------------------------------------------------
-
-function renderMarketCard(content) {
-  const d = parseMarket(content);
-  const krant = parseKrant(content);
-  if (!d.btcPrice) return '<div class="card-waiting">Geen data</div>';
-
-  return `
-    <div class="market-primary">
-      <div class="market-main">
-        <div class="market-ticker">BTC</div>
-        <div class="market-price" data-live="BTC-price">$${d.btcPrice}</div>
-        <div class="market-change ${colorClass(d.btc24h)}" data-live="BTC-24h">${d.btc24h}</div>
-        ${d.btc7d ? `<div class="market-7d ${colorClass(d.btc7d)}" data-live="BTC-7d">${d.btc7d} 7d</div>` : ''}
-        <div class="market-live-stamp" data-live="stamp"></div>
-      </div>
-      ${d.btcAthDist ? `<div class="market-ath-block">
-        <div class="ath-label">van ATH</div>
-        <div class="ath-value ${colorClass(d.btcAthDist)}">${d.btcAthDist}</div>
-      </div>` : ''}
-    </div>
-    <div class="market-divider"></div>
-    <div class="market-alt">
-      ${d.ethPrice ? `<div class="market-alt-row">
-        <span class="alt-ticker">ETH</span>
-        <span class="alt-price" data-live="ETH-price">$${d.ethPrice}</span>
-        <span class="alt-change ${colorClass(d.eth24h)}" data-live="ETH-24h">${d.eth24h}</span>
-        ${d.ethAthDist ? `<span class="alt-ath ${colorClass(d.ethAthDist)}">${d.ethAthDist}</span>` : ''}
-      </div>` : ''}
-    </div>
-    ${d.fearGreed || d.dominance || d.funding ? `<div class="market-indicators">
-      ${d.fearGreed ? `<span class="indicator"><span class="ind-label">F&G</span> <span class="ind-value">${d.fearGreed.score}</span></span>` : ''}
-      ${d.dominance ? `<span class="indicator"><span class="ind-label">BTC.D</span> <span class="ind-value">${d.dominance}%</span></span>` : ''}
-      ${d.funding ? `<span class="indicator"><span class="ind-label">FR</span> <span class="ind-value">${d.funding}</span></span>` : ''}
-    </div>` : ''}
-    ${d.macro ? `<div class="market-macro">${d.macro}</div>` : ''}
-    ${renderKrantSection(krant)}
-  `;
-}
-
-function renderNestSeoCard(content) {
-  const d = parseNestSeo(content);
-  const krant = parseKrant(content);
-
-  const tableRows = d.backlinkRows.map(row => {
-    const drNum = parseInt(row.dr);
-    const drClass = drNum >= 70 ? 'dr-high' : drNum >= 30 ? 'dr-mid' : 'dr-low';
-    return `<tr>
-      <td class="bl-domain">${row.domain}</td>
-      <td class="bl-dr ${drClass}">${row.dr}</td>
-      <td class="bl-count">${row.type === 'dofollow' ? 'do' : 'no'}</td>
-      <td class="bl-date">${row.date}</td>
-    </tr>`;
-  }).join('');
-
-  return `
-    <div class="seo-layout">
-      <div class="seo-left">
-        <div class="seo-dr-block">
-          <div class="seo-dr-value">${d.dr || '—'}</div>
-          <div class="seo-dr-label">Domain Rating</div>
-        </div>
-        <div class="seo-kpis">
-          <div class="seo-kpi">
-            <div class="seo-kpi-value">${d.refDomains || '—'}</div>
-            <div class="seo-kpi-label">ref domains</div>
-          </div>
-          <div class="seo-kpi">
-            <div class="seo-kpi-value">${d.backlinks || '—'}</div>
-            <div class="seo-kpi-label">backlinks</div>
-          </div>
-        </div>
-        ${d.trend ? `<div class="seo-trend">${d.trend}</div>` : ''}
-      </div>
-      ${tableRows ? `<div class="seo-right">
-        <div class="seo-table-label">Nieuwe backlinks (7d)</div>
-        <table class="seo-table">
-          <thead><tr><th>Domain</th><th>DR</th><th>Type</th><th>Datum</th></tr></thead>
-          <tbody>${tableRows}</tbody>
-        </table>
-      </div>` : ''}
-    </div>
-    ${renderKrantSection(krant)}
-  `;
-}
-
-function renderInfraCard(content) {
-  const d = parseInfra(content);
-  const krant = parseKrant(content);
-
-  const sitesDots = d.sites.map(s => {
-    const ok = s.code >= 200 && s.code < 400;
-    return `<div class="dot-row">
-      <span class="dot ${ok ? 'dot-green' : 'dot-red'}"></span>
-      <span class="dot-name">${s.name}</span>
-      <span class="dot-code">${s.code}</span>
-    </div>`;
-  }).join('');
-
-  const deployDots = d.deploys.map(dep => {
-    const ok = dep.status === 'READY';
-    return `<div class="dot-row">
-      <span class="dot ${ok ? 'dot-green' : 'dot-red'}"></span>
-      <span class="dot-name">${dep.name}</span>
-    </div>`;
-  }).join('');
-
-  return `
-    ${sitesDots ? `<div class="infra-section">
-      <div class="infra-label">SITES</div>
-      <div class="infra-dots">${sitesDots}</div>
-    </div>` : ''}
-    ${deployDots ? `<div class="infra-section">
-      <div class="infra-label">DEPLOYS</div>
-      <div class="infra-dots">${deployDots}</div>
-    </div>` : ''}
-    ${d.git ? `<div class="infra-meta"><span class="infra-meta-key">GIT</span> ${d.git}</div>` : ''}
-    ${d.bridge ? `<div class="infra-meta"><span class="infra-meta-key">BRIDGE</span> ${d.bridge}</div>` : ''}
-    ${renderKrantSection(krant)}
-  `;
-}
-
-function renderEnrichmentCard(content) {
-  const d = parseEnrichment(content);
-  const krant = parseKrant(content);
-  if (!d.tenants.length) return '<div class="card-waiting">Geen data</div>';
-
-  const rows = d.tenants.map(t => {
-    const dn = parseInt(t.delta);
-    const deltaCls = dn > 0 ? 'pos' : dn < 0 ? 'neg' : 'neutral';
-    const deltaSign = dn > 0 ? '+' : '';
-    return `<tr>
-      <td class="enr-tenant">${t.tenant}</td>
-      <td class="enr-filled">${t.filled}</td>
-      <td class="enr-delta ${deltaCls}">${deltaSign}${t.delta}</td>
-      <td class="enr-backlog">${t.backlog}</td>
-      <td class="enr-when">${t.lastEnriched}</td>
-    </tr>`;
-  }).join('');
-
-  const throughput = (d.skyldLastHour || d.skyldLast6h)
-    ? `<div class="enr-throughput">
-        SKYLD throughput
-        ${d.skyldLastHour ? `<span class="enr-rate">${d.skyldLastHour}/u (1h)</span>` : ''}
-        ${d.skyldLast6h ? `<span class="enr-rate">${d.skyldLast6h}/6u (6h)</span>` : ''}
-      </div>`
-    : '';
-
-  return `
-    <table class="enr-table">
-      <thead><tr><th>Tenant</th><th>L6</th><th>Δ</th><th>Backlog</th><th>Last</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-    ${throughput}
-    ${renderKrantSection(krant)}
-  `;
-}
-
-function renderWatchlistCard(content) {
-  const d = parseWatchlist(content);
-  const krant = parseKrant(content);
-  if (!d.assets.length) return '<div class="card-waiting">Geen data</div>';
-
-  const rows = d.assets.map(a => {
-    const cls = a.deltaNum > 0 ? 'pos' : a.deltaNum < 0 ? 'neg' : '';
-    const hot = Math.abs(a.deltaNum) >= 5 ? ' wl-hot' : '';
-    return `<tr class="${hot.trim()}">
-      <td class="wl-asset">${a.asset}</td>
-      <td class="wl-price">${a.price}</td>
-      <td class="wl-delta ${cls}">${a.delta}</td>
-      <td class="wl-hl">${a.high}</td>
-      <td class="wl-hl">${a.low}</td>
-      <td class="wl-vol">${a.volume}</td>
-    </tr>`;
-  }).join('');
-
-  const signalsHtml = d.signals.length
-    ? `<div class="wl-signals">${d.signals.map(s => `<div class="wl-signal">${s}</div>`).join('')}</div>`
-    : '';
-
-  return `
-    <div class="wl-layout">
-      <table class="wl-table">
-        <thead><tr>
-          <th>Asset</th><th>Prijs</th><th>24h</th><th>High</th><th>Low</th><th>Vol</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-      ${signalsHtml}
-    </div>
-    ${renderKrantSection(krant)}
-  `;
-}
-
-function renderAntiFragCard(content) {
-  const d = parseAntiFrag(content);
-  const krant = parseKrant(content);
-
-  return `
-    <div class="af-content">
-      ${d.cycle ? `<div class="af-cycle">Cycle ${d.cycle}</div>` : ''}
-      ${d.btcPrice ? `<div class="af-price">BTC $${d.btcPrice} <span class="${colorClass(d.btc24h)}">${d.btc24h || ''}</span> 24h</div>` : ''}
-      ${d.state ? `<div class="af-status">${d.state}</div>` : ''}
-      ${d.trade ? `<div class="af-edges">Trades: ${d.trade}</div>` : ''}
-    </div>
-    ${renderKrantSection(krant)}
-  `;
-}
-
-function renderThesisTraderCard(content) {
-  const d = parseThesisTrader(content);
-  const krant = parseKrant(content);
-  if (!d.status && !d.trade) return '<div class="card-waiting">Geen data</div>';
-
-  const t = d.trade;
-  const mtmCls = t && t.mtmPct ? colorClass(t.mtmPct) : '';
-  const slCls = t && t.sl && t.sl.status === 'VEILIG' ? 'pos' : 'neg';
-
-  // Stash the parsed trade for the live alert layer (TP/SL/expiry checks).
-  // Numbers come out of markdown with thousand-commas; strip for arithmetic.
-  const numFromStr = s => s ? parseFloat(String(s).replace(/[^0-9.-]/g, '')) : null;
-  if (t) {
-    liveTrade = {
-      id: t.id,
-      direction: t.direction,
-      entry: numFromStr(t.entryPrice),
-      tp1: t.tp1 ? numFromStr(t.tp1.price) : null,
-      tp2: t.tp2 ? numFromStr(t.tp2.price) : null,
-      sl:  t.sl  ? numFromStr(t.sl.price)  : null,
-      expiryISO: t.expiry ? t.expiry.date : null,
-    };
-  } else {
-    liveTrade = null;
+  function shortenRegime(regime) {
+    if (!regime) return '';
+    let s = regime.split(/—|\(|\s+\/\s+/)[0].trim();
+    if (s.length > 32) s = s.slice(0, 30) + '…';
+    return s.toLowerCase();
   }
 
-  const entryNum = t ? numFromStr(t.entryPrice) : null;
-  return `
-    <div class="tt-header">
-      <div class="tt-status">${d.status || ''}</div>
-      ${d.price ? `<div class="tt-price" data-live="BTC-price-tt">BTC $${d.price}</div>` : ''}
-    </div>
-    ${t ? `
-      <div class="tt-trade" data-tt-entry="${entryNum || ''}" data-tt-direction="${t.direction || ''}" data-tt-id="${t.id || ''}">
-        <div class="tt-trade-id">${t.id}${t.direction ? ' · ' + t.direction : ''}${t.age ? ' · ' + t.age : ''}</div>
-        ${t.mtmPct ? `<div class="tt-mtm ${mtmCls}" data-live="tt-mtm">${t.mtmPct} <span class="tt-r">${t.mtmR || ''}</span></div>` : ''}
-        <div class="tt-grid">
-          ${t.entryPrice ? `<div class="tt-cell"><div class="tt-k">Entry</div><div class="tt-v">$${t.entryPrice}</div></div>` : ''}
-          ${t.tp1 ? `<div class="tt-cell"><div class="tt-k">TP1</div><div class="tt-v">$${t.tp1.price} <span class="tt-dim">${t.tp1.pct}</span></div></div>` : ''}
-          ${t.tp2 ? `<div class="tt-cell"><div class="tt-k">TP2</div><div class="tt-v">$${t.tp2.price}</div></div>` : ''}
-          ${t.sl ? `<div class="tt-cell"><div class="tt-k">SL</div><div class="tt-v ${slCls}">$${t.sl.price} <span class="tt-dim">${t.sl.status}</span></div></div>` : ''}
-          ${t.expiry ? `<div class="tt-cell"><div class="tt-k">Expiry</div><div class="tt-v">${t.expiry.date} <span class="tt-dim">${t.expiry.daysLeft}</span></div></div>` : ''}
-        </div>
-      </div>
-    ` : '<div class="tt-empty">Geen open trade</div>'}
-    ${renderKrantSection(krant)}
-  `;
-}
+  function regimeKickerClass(regime) {
+    if (!regime) return 'neut';
+    const r = regime.toLowerCase();
+    if (/^(rally|nominal|flowing|growing|validated|rotation|risk[-_ ]on|bullish|bull|up[-_ ]|extends|extension|live|proved|proven|squeeze|breakout)/.test(r)) return 'bull';
+    if (/^(correction|capitulation|down[-_]|stalled|declining|falsified|bearish|bear|dead|degraded|no[-_ ]edge|critical|refuted|breakdown|cement|rejection|risk[-_ ]off|short)/.test(r)) return 'bear';
+    return 'neut';
+  }
 
-// Generic renderer: regime + krant only. Fallback for sensors without
-// a custom renderer (confluence, machinekamer, macro-regime, ma200, backtest,
-// ta-setups, future NEMESIS sensors).
-function renderGenericCard(content) {
-  const krant = parseKrant(content);
-  // Try to surface a one-line headline before the krant if no krant exists,
-  // so the card isn't empty.
-  if (!krant.hasKrant) {
-    const firstPara = content.split(/\n\n/).find(p => {
-      const trimmed = p.trim();
-      return trimmed && !trimmed.startsWith('#') && !trimmed.startsWith('---')
-        && !trimmed.startsWith('>') && !trimmed.startsWith('|');
-    });
-    if (firstPara) {
-      return `<div class="generic-headline">${truncate(firstPara.replace(/\*\*/g, ''), 280)}</div>`;
+  function extractFalsifier(text) {
+    if (!text) return null;
+    const m = text.match(/Falsifi(?:catie|er):\s*([^.]+(?:\.|$))/i);
+    if (m) return m[1].trim();
+    const m2 = text.match(/Falsificatie[\-\s]stop:\s*([^.]+(?:\.|$))/i);
+    if (m2) return m2[1].trim();
+    return null;
+  }
+
+  function extractTradeProposal(actie) {
+    if (!actie) return { headline: null, body: null };
+    const longShort = actie.match(/^(Long|Short|LONG|SHORT|GEEN ENTRY|HOLD|ADD|EXIT|TRIM|ENTRY)[^.]*\./);
+    if (longShort) {
+      const h = longShort[0].trim();
+      const rest = actie.slice(longShort[0].length).trim();
+      const restSentence = rest.match(/^[^.]+\./);
+      return {
+        headline: h.length > 100 ? h.slice(0, 97) + '…' : h,
+        body: restSentence ? restSentence[0].trim() : null,
+      };
     }
-    return '<div class="card-waiting">Wacht op data</div>';
+    const first = actie.match(/^[^.]+\./);
+    return first
+      ? { headline: first[0].trim().slice(0, 100), body: null }
+      : { headline: null, body: null };
   }
-  return renderKrantSection(krant);
-}
 
-const RENDERERS = {
-  'market': renderMarketCard,
-  'watchlist': renderWatchlistCard,
-  'nest-seo': renderNestSeoCard,
-  'infra': renderInfraCard,
-  'enrichment': renderEnrichmentCard,
-  'anti-fragile': renderAntiFragCard,
-  'thesis-trader': renderThesisTraderCard,
-  'generic': renderGenericCard,
-};
+  function fallbackHeadline(content) {
+    if (!content) return null;
+    const stateM = content.match(/\*\*State:\*\*\s*([^\n]+)/);
+    if (stateM) return stateM[1].trim().slice(0, 80);
+    const reg = content.match(/^>\s*regime:\s*(.+)/mi)
+      || content.match(/^regime:\s*(.+)/mi);
+    if (reg) return reg[1].trim().slice(0, 80);
+    return null;
+  }
 
-// --- Dashboard -----------------------------------------------------------
+  function extractByline(content) {
+    if (!content) return null;
+    const cycleM = content.match(/\*\*Cycle:\*\*\s*([^\n]+)/);
+    if (cycleM) return cycleM[1].trim().slice(0, 80);
+    const runM = content.match(/\*\*Run:\*\*\s*([^|]+)/);
+    if (runM) return runM[1].trim().slice(0, 80);
+    return null;
+  }
 
-function buildSensorList(names) {
-  // Decorate with role + filter via registry status.
-  return names
-    .filter(shouldDisplay)
-    .map(name => ({
-      name,
-      role: SENSOR_ROLES[name] || DEFAULT_ROLE,
-    }))
-    .sort((a, b) => {
-      const ag = GROUP_ORDER.indexOf(a.role.group);
-      const bg = GROUP_ORDER.indexOf(b.role.group);
-      if (ag !== bg) return ag - bg;
-      // Within a group, preserve role-defined order if present, else alpha.
-      const ai = Object.keys(SENSOR_ROLES).indexOf(a.name);
-      const bi = Object.keys(SENSOR_ROLES).indexOf(b.name);
-      if (ai !== -1 && bi !== -1) return ai - bi;
-      if (ai !== -1) return -1;
-      if (bi !== -1) return 1;
-      return a.name.localeCompare(b.name);
-    });
+  function titleize(name) {
+    if (!name) return '';
+    return name.split('-').map(p => p[0].toUpperCase() + p.slice(1)).join(' ');
+  }
+
+  return {
+    escape,
+    shapeHeadline, shapeDeck, shapeBody, shapeTripleBody, shapeBodyParagraph,
+    shortenRegime, regimeKickerClass,
+    extractFalsifier, extractTradeProposal,
+    fallbackHeadline, extractByline, titleize,
+  };
+})();
+
+// --- Editorial dashboard dispatcher --------------------------------------
+
+const STRIP_NAMES = ['enrichment', 'infra', 'nest-seo', 'backtest', 'machinekamer'];
+
+function updateMastheadMeta(visibleSensors, freshCount) {
+  const el = document.getElementById('masthead-meta');
+  if (!el) return;
+  const today = new Date();
+  const days = ['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
+  const months = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+  const dayName = days[today.getDay()];
+  const dateStr = `${today.getDate()} ${months[today.getMonth()]} ${today.getFullYear()}`;
+  const stamp = today.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+  el.innerHTML = `${dayName} <strong>${dateStr}</strong> · run-as-of <strong>${stamp} CEST</strong> · sensors ${freshCount}/${visibleSensors.length} ✓`;
 }
 
 async function renderDashboard() {
-  const grid = document.getElementById('sensor-grid');
+  const editorial = document.getElementById('editorial');
+  if (!editorial) return;
 
-  if (!sensors.length) {
-    try {
-      const [names] = await Promise.all([fetchSensorListing(), fetchRegistry()]);
-      sensors = buildSensorList(names);
-    } catch (e) {
-      grid.innerHTML = `<p class="loading">Failed to discover sensors: ${e.message}</p>`;
-      return;
-    }
+  const [names] = await Promise.all([fetchSensorListing(), fetchRegistry()]);
+  const visible = names.filter(shouldDisplay);
+
+  // Parallel content fetch.
+  const contents = {};
+  await Promise.allSettled(visible.map(async name => {
+    try { contents[name] = await fetchFile(`sensors/${name}.md`); }
+    catch (e) { /* leave blank */ }
+  }));
+
+  const slot = (name) => {
+    const content = contents[name];
+    if (!content) return null;
+    return {
+      name,
+      content,
+      krant: parseKrant(content),
+      regime: parseRegime(content),
+      meta: parseSensorMeta(content),
+    };
+  };
+
+  // Masthead — show fresh sensor count.
+  const freshCount = visible.filter(n => {
+    const c = contents[n];
+    if (!c) return false;
+    const m = parseSensorMeta(c);
+    return m.status === 'fresh';
+  }).length;
+  updateMastheadMeta(visible, freshCount);
+
+  // LEAD — market sensor.
+  const market = slot('market');
+  if (market && window.PulseLead) {
+    window.PulseLead.render({
+      section: document.getElementById('sec-lead'),
+      content: market.content,
+      krant: market.krant,
+      regime: market.regime,
+      meta: market.meta,
+    });
   }
 
-  grid.innerHTML = sensors.map(s => {
-    const prom = prominenceClass(s.name);
-    return `
-      <div class="sensor-card span-${s.role.span} ${prom}" data-sensor="${s.name}">
-        <div class="sensor-header">
-          <span class="sensor-name">${s.role.label || s.name}</span>
-          <span class="regime-label" id="regime-${s.name}"></span>
-          <span class="sensor-badge badge-down" id="badge-${s.name}">...</span>
-        </div>
-        <div class="sensor-body" id="body-${s.name}"><div class="loading-text">laden…</div></div>
-      </div>
-    `;
-  }).join('');
+  // F/G band — uses fear-greed sensor if it exists, else market.md F&G line.
+  if (window.PulseFearGreed) {
+    const fgContent = contents['fear-greed'] || null;
+    await window.PulseFearGreed.render({
+      section: document.getElementById('sec-fg'),
+      marketContent: market ? market.content : null,
+      sensorContent: fgContent,
+      krant: fgContent ? parseKrant(fgContent) : null,
+    });
+  }
 
-  grid.querySelectorAll('.sensor-card').forEach(card => {
-    card.addEventListener('click', () => navigate(`doc/sensors/${card.dataset.sensor}.md`));
+  // Heat-index already mounted at startup; live tick fills it.
+
+  // POSITION INSET — thesis-trader.
+  const thesis = slot('thesis-trader');
+  if (window.PulsePositionInset) {
+    window.PulsePositionInset.render({
+      section: document.getElementById('sec-position'),
+      content: thesis ? thesis.content : null,
+      krant: thesis ? thesis.krant : null,
+    });
+  }
+
+  // TRIPLE — confluence | macro-regime | anti-fragile.
+  if (window.PulseTriple) {
+    window.PulseTriple.render({
+      section: document.getElementById('sec-triple'),
+      slots: {
+        confluence: slot('confluence'),
+        macro: slot('macro-regime'),
+        antiFragile: slot('anti-fragile'),
+      },
+    });
+  }
+
+  // DUO — watchlist | ma200.
+  if (window.PulseDuo) {
+    window.PulseDuo.render({
+      section: document.getElementById('sec-duo'),
+      slots: {
+        watchlist: slot('watchlist'),
+        ma200: slot('ma200'),
+      },
+    });
+  }
+
+  // STRIP — small sensors.
+  if (window.PulseStrip) {
+    const stripSlots = STRIP_NAMES
+      .filter(n => visible.includes(n))
+      .map(n => ({ name: n, label: n, content: contents[n] || null }));
+    window.PulseStrip.render({
+      section: document.getElementById('sec-strip'),
+      slots: stripSlots,
+    });
+  }
+
+  // Wire deep-link clicks on sensor sections to the document view.
+  document.querySelectorAll('[data-sensor-link]').forEach(el => {
+    el.addEventListener('click', () => navigate(`doc/sensors/${el.dataset.sensorLink}.md`));
   });
 
-  await Promise.allSettled(sensors.map(async s => {
-    const name = s.name;
-    try {
-      const content = await fetchFile(`sensors/${name}.md`);
-      const meta = parseSensorMeta(content);
-      const badge = document.getElementById(`badge-${name}`);
-      const body = document.getElementById(`body-${name}`);
-
-      if (meta.notDeployed) {
-        badge.textContent = '–';
-        badge.className = 'sensor-badge badge-pending';
-        body.innerHTML = '<div class="card-waiting">Wacht op data</div>';
-        return;
-      }
-
-      if (meta.hoursAgo !== null) {
-        badge.textContent = `${meta.hoursAgo}h`;
-        badge.className = `sensor-badge badge-${meta.status}`;
-      } else {
-        badge.textContent = '?';
-        badge.className = 'sensor-badge badge-pending';
-      }
-
-      const regime = parseRegime(content);
-      const regimeEl = document.getElementById(`regime-${name}`);
-      if (regime && regimeEl) {
-        // Strip parenthetical / em-dash explanations so the badge stays compact.
-        const short = regime.split(/\s+\(|\s+—|\s+-\s/)[0].trim();
-        regimeEl.textContent = truncate(short, 28);
-        regimeEl.className = `regime-label ${regimeColor(regime)}`;
-      }
-
-      const renderer = RENDERERS[s.role.renderer] || renderGenericCard;
-      body.innerHTML = renderer(content, meta);
-    } catch (e) {
-      const badge = document.getElementById(`badge-${name}`);
-      const body = document.getElementById(`body-${name}`);
-      if (badge) { badge.textContent = 'ERR'; badge.className = 'sensor-badge badge-down'; }
-      if (body) body.innerHTML = `<div class="card-waiting">Laad fout: ${e.message}</div>`;
-    }
-  }));
+  // Charts — re-init after each render (lib/charts.js disposes old instances).
+  if (window.PulseCharts) {
+    window.PulseCharts.initBtcChart('btc-chart');
+    window.PulseCharts.initEthBtcRatio('ethbtc-sparkline');
+  }
 }
 
 // --- Live layer (Kraken 15s) --------------------------------------------
 
-// Format with thousand separators. 2 decimals for liquid majors so the live
-// layer's seconds-precision ticking is visible; more decimals for sub-dollar
-// alts (FARTCOIN, PUMP, MINA-class) so movement isn't quantized away.
 function fmtPrice(p) {
   if (p == null || isNaN(p)) return '—';
   const decimals = p >= 100 ? 2 : p >= 1 ? 3 : p >= 0.01 ? 4 : 6;
-  return p.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
+  return p.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
 function fmtStamp(ts) {
@@ -934,77 +478,49 @@ function fmtStamp(ts) {
   return `${hh}:${mm}:${ss} live`;
 }
 
-// Inject live BTC/ETH prices into the market card and thesis-trader card.
-// Re-derives 24h change from anchors when available so the percentage moves
-// in lock-step with the price.
 function injectLivePrices() {
   if (!liveTickers) return;
   const btc = liveTickers.BTC;
-  const eth = liveTickers.ETH;
   const stamp = liveTickers._fetchedAt || Date.now();
 
   document.querySelectorAll('[data-live="BTC-price"]').forEach(el => {
     if (btc != null) el.textContent = '$' + fmtPrice(btc);
   });
   document.querySelectorAll('[data-live="BTC-price-tt"]').forEach(el => {
-    if (btc != null) el.textContent = 'BTC $' + fmtPrice(btc);
-  });
-  document.querySelectorAll('[data-live="ETH-price"]').forEach(el => {
-    if (eth != null) el.textContent = '$' + fmtPrice(eth);
+    if (btc != null) el.textContent = '$' + fmtPrice(btc);
   });
   document.querySelectorAll('[data-live="stamp"]').forEach(el => {
     el.textContent = fmtStamp(stamp);
   });
 
-  // Recompute 24h change from anchors when we have them.
+  // Masthead 24h delta — derived from anchor.
   if (liveAnchors && window.Thermometer) {
     const T = window.Thermometer;
-    const update24h = (sym, sel) => {
-      const ank = liveAnchors[sym] && liveAnchors[sym]['24h'];
-      const live = liveTickers[sym];
-      const pct = T.pctChange(live, ank);
-      if (pct == null) return;
-      document.querySelectorAll(`[data-live="${sel}"]`).forEach(el => {
+    const ank = liveAnchors.BTC && liveAnchors.BTC['24h'];
+    const pct = T.pctChange(btc, ank);
+    if (pct != null) {
+      document.querySelectorAll('[data-live="BTC-24h-delta"]').forEach(el => {
         el.textContent = T.fmtPct(pct);
-        el.classList.remove('pos', 'neg');
-        el.classList.add(pct >= 0 ? 'pos' : 'neg');
-      });
-    };
-    update24h('BTC', 'BTC-24h');
-    update24h('ETH', 'ETH-24h');
-
-    // 7d for BTC if rendered.
-    const ank7 = liveAnchors.BTC && liveAnchors.BTC['7d'];
-    if (ank7 && btc != null) {
-      const pct = T.pctChange(btc, ank7);
-      document.querySelectorAll('[data-live="BTC-7d"]').forEach(el => {
-        if (pct == null) return;
-        el.textContent = T.fmtPct(pct) + ' 7d';
-        el.classList.remove('pos', 'neg');
-        el.classList.add(pct >= 0 ? 'pos' : 'neg');
+        el.classList.remove('delta-up', 'delta-down');
+        el.classList.add(pct >= 0 ? 'delta-up' : 'delta-down');
       });
     }
   }
 
-  // Thesis-trader MTM recompute from live BTC vs entry.
+  // Position-inset MTM — recompute from live BTC vs entry.
   document.querySelectorAll('[data-live="tt-mtm"]').forEach(el => {
-    const tradeEl = el.closest('.tt-trade');
-    if (!tradeEl || btc == null) return;
-    const entry = parseFloat(tradeEl.dataset.ttEntry);
-    const dir = (tradeEl.dataset.ttDirection || '').toUpperCase();
+    const insetEl = el.closest('[data-tt-entry]');
+    if (!insetEl || btc == null) return;
+    const entry = parseFloat(insetEl.dataset.ttEntry);
+    const dir = (insetEl.dataset.ttDirection || '').toUpperCase();
     if (!entry || isNaN(entry)) return;
     const pct = dir === 'SHORT'
       ? ((entry - btc) / entry) * 100
       : ((btc - entry) / entry) * 100;
     const sign = pct > 0 ? '+' : '';
-    const txt = `${sign}${pct.toFixed(2)}%`;
-    // Preserve the trailing R-multiple span if it was present (we keep a
-    // reference, then rebuild the node so the leading text node updates).
-    const rSpan = el.querySelector('.tt-r');
-    el.textContent = txt + ' ';
-    if (rSpan) el.appendChild(rSpan);
-    el.classList.remove('pos', 'neg');
-    el.classList.add(pct >= 0 ? 'pos' : 'neg');
+    el.textContent = `${sign}${pct.toFixed(2)}%`;
+    el.classList.remove('bull', 'bear');
+    el.classList.add(pct >= 0 ? '' : 'bear');
   });
 }
 
@@ -1025,7 +541,6 @@ async function liveTick() {
 
     injectLivePrices();
 
-    // Build alert state and feed the engine.
     if (window.Alerts) {
       const T = window.Thermometer;
       const thermo = {};
@@ -1037,12 +552,11 @@ async function liveTick() {
       window.Alerts.tick({
         tickers,
         thermo,
-        trade: liveTrade,
+        trade: window.__pulseLiveTrade || null,
       });
     }
   } catch (e) {
     // Live layer is best-effort — don't fail the dashboard.
-    // eslint-disable-next-line no-console
     console.warn('[pulse] live tick failed', e);
   }
 }
@@ -1062,7 +576,7 @@ async function renderDocument(path) {
   bc.innerHTML = '<a href="#dashboard">dashboard</a> / ' +
     parts.map((p, i) => {
       if (i < parts.length - 1) return `<span>${p}</span>`;
-      return `<strong style="color:var(--text)">${p}</strong>`;
+      return `<strong>${p}</strong>`;
     }).join(' / ');
 
   const contentEl = document.getElementById('document-content');
@@ -1087,7 +601,7 @@ async function renderDocument(path) {
     const lines = content.split('\n').length;
     metaEl.textContent = `${lines} lines | ${path}`;
   } catch (e) {
-    contentEl.innerHTML = `<p style="color:var(--red)">Failed to load ${path}</p>`;
+    contentEl.innerHTML = `<p class="bear-text">Failed to load ${path}</p>`;
     metaEl.textContent = '';
   }
 }
@@ -1140,14 +654,14 @@ async function renderGraph() {
   nodes.forEach(n => { n.radius = 5 + (inLinks[n.id] || 0) * 2; });
 
   const colors = {
-    sensors: '#22c55e',
-    prompts: '#eab308',
-    operations: '#ef4444',
-    'domain-knowledge': '#3b82f6',
-    repos: '#8b5cf6',
-    'api-references': '#06b6d4',
-    bin: '#6b7280',
-    root: '#9ca3af'
+    sensors: '#1f6e3f',
+    prompts: '#b67c0a',
+    operations: '#a02a26',
+    'domain-knowledge': '#4a463c',
+    repos: '#756f5f',
+    'api-references': '#1f6e3f',
+    bin: '#8a8576',
+    root: '#16140f',
   };
 
   const svg = d3.select(container).append('svg')
@@ -1162,8 +676,7 @@ async function renderGraph() {
     .force('center', d3.forceCenter(width / 2, height / 2))
     .force('collision', d3.forceCollide().radius(d => d.radius + 10));
 
-  const link = svg.append('g').selectAll('line').data(links).join('line')
-    .attr('class', 'link');
+  const link = svg.append('g').selectAll('line').data(links).join('line').attr('class', 'link');
 
   const node = svg.append('g').selectAll('g').data(nodes).join('g')
     .attr('class', 'node')
@@ -1179,18 +692,12 @@ async function renderGraph() {
       })
     );
 
-  node.append('circle')
-    .attr('r', d => d.radius)
-    .attr('fill', d => colors[d.group] || '#666');
-
-  node.append('text')
-    .attr('dx', d => d.radius + 4)
-    .attr('dy', 4)
-    .text(d => d.name);
+  node.append('circle').attr('r', d => d.radius).attr('fill', d => colors[d.group] || '#666');
+  node.append('text').attr('dx', d => d.radius + 4).attr('dy', 4).text(d => d.name);
 
   node.on('mouseover', (e, d) => {
     tooltip.style.display = 'block';
-    tooltip.innerHTML = `<strong>${d.name}</strong><br><span style="color:#888">${d.id}</span>`;
+    tooltip.innerHTML = `<strong>${d.name}</strong><br><span class="dim">${d.id}</span>`;
     tooltip.style.left = (e.pageX + 12) + 'px';
     tooltip.style.top = (e.pageY - 12) + 'px';
   })
@@ -1202,8 +709,7 @@ async function renderGraph() {
   .on('click', (e, d) => navigate(`doc/${d.id}`));
 
   sim.on('tick', () => {
-    link
-      .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+    link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
       .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
     node.attr('transform', d => `translate(${d.x},${d.y})`);
   });
@@ -1211,13 +717,10 @@ async function renderGraph() {
 
 // --- Router --------------------------------------------------------------
 
-function navigate(hash) {
-  window.location.hash = hash;
-}
+function navigate(hash) { window.location.hash = hash; }
 
 function handleRoute() {
   const hash = window.location.hash.slice(1) || 'dashboard';
-
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
 
@@ -1246,11 +749,9 @@ window.addEventListener('hashchange', handleRoute);
 // --- Init ----------------------------------------------------------------
 
 async function init() {
-  // Live layer wiring — alerts banner + thermometers skeleton render
-  // immediately so the page feels populated even before Kraken responds.
   if (window.Alerts) window.Alerts.init(document.getElementById('alert-stack'));
   if (window.Thermometers) {
-    window.Thermometers.mountThermometers(document.getElementById('thermometers'));
+    window.Thermometers.mountThermometers(document.getElementById('heat-grid'));
   }
 
   try {
@@ -1258,22 +759,25 @@ async function init() {
     await renderDashboard();
     handleRoute();
   } catch (e) {
-    document.getElementById('sensor-grid').innerHTML =
-      '<p class="loading">Failed to connect to wiki API. Check GITHUB_PAT env var.</p>';
+    const editorial = document.getElementById('editorial');
+    if (editorial) {
+      editorial.innerHTML = '<div class="loading">Failed to connect to wiki API.</div>';
+    }
+    console.error('[pulse] init failed', e);
   }
 
   startLiveLoop();
 
+  // Wiki content refresh every 5 minutes — re-renders editorial + re-paints
+  // live values into the freshly-rendered DOM.
   setInterval(async () => {
     cache = {};
     tree = null;
     registry = null;
-    sensors = [];
     try {
       await fetchTree();
       if (document.getElementById('dashboard-view').classList.contains('active')) {
         await renderDashboard();
-        // Re-paint live values into the freshly-rendered cards.
         injectLivePrices();
       }
     } catch (e) { /* silent refresh failure */ }
