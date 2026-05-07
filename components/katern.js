@@ -47,13 +47,6 @@
   }
 
   function emptyHtml(katernName) {
-    if (katernName === 'lichaam') {
-      return `<div class="katern-empty">
-        <h3>Geen actieve sensor in dit katern.</h3>
-        <p>Cortex (Whoop) staat op KANDIDAAT-VERWIJDERING — Whoop OAuth dood sinds cycle 1.
-        Ruimte gereserveerd voor herstel.</p>
-      </div>`;
-    }
     if (katernName === 'residu') {
       return `<div class="katern-empty">
         <h3>Observer-residue sensor wacht op wiki-merge.</h3>

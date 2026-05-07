@@ -119,6 +119,22 @@ function parseSensorMeta(content) {
     return meta;
   }
   let tsMatch = content.match(/^[>\s-]*last_updated:\s*([^\n]+)/mi);
+  // Observability-split: sensors that distinguish attempted vs successful runs
+  // (cortex doctrine, may spread to other sensors with external-API dependencies).
+  // Freshness reflects the LAST SUCCESSFUL run — a sensor that attempts every
+  // hour but never succeeds is not fresh, it is broken.
+  if (!tsMatch) {
+    const successMatch = content.match(/^[>\s-]*last_successful_at:\s*([^\n]+)/mi);
+    if (successMatch) {
+      const v = successMatch[1].trim();
+      // 'never' or empty → notDeployed (sensor exists but has never produced a healthy run)
+      if (/^never$/i.test(v) || v === '—' || v === '-' || v === '') {
+        meta.notDeployed = true;
+        return meta;
+      }
+      tsMatch = [null, v];
+    }
+  }
   if (!tsMatch) {
     const parenDate = content.match(/\*\*Cycle:\*\*[^\(]*\((\d{1,2}\s+\w+\s+\d{4}[^)]*)\)/);
     if (parenDate) tsMatch = [null, parenDate[1].replace(/~/, '')];
