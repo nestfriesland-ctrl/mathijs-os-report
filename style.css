@@ -1090,6 +1090,87 @@ footer.editorial {
   margin: 0;
 }
 
+/* Necrologie-katern (PR #8) */
+.necrologie-lead {
+  border-bottom: 2px solid var(--ink);
+}
+.necrologie-lead .kicker {
+  /* Doodsoorzaak als kicker — bear-color voor visueel afgesloten */
+  color: var(--bear);
+}
+.necrologie-grafsteen {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.7;
+  margin: 14px 0 16px;
+  padding: 14px 16px;
+  background: rgba(22,20,15,0.04);
+  border-left: 2px solid var(--ink);
+}
+.grafsteen-row {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 12px;
+}
+.grafsteen-row .lbl {
+  font-family: var(--sans);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--ink-mute);
+  align-self: center;
+}
+.grafsteen-row .v { color: var(--ink); }
+
+.necrologie-lead .deep-link {
+  font-family: var(--sans);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  text-decoration: none;
+  color: var(--ink);
+  display: inline-block;
+  margin-top: 4px;
+}
+.necrologie-lead .deep-link:hover { text-decoration: underline; }
+
+.necrologie-triple {
+  border-bottom: 1px solid var(--paper-rule);
+}
+.necrologie-mini {
+  min-height: 80px;
+}
+.necrologie-mini h2 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 19px;
+  line-height: 1.15;
+  margin: 4px 0 8px;
+}
+.necrologie-mini h2 a {
+  text-decoration: none;
+  color: var(--ink);
+}
+.necrologie-mini h2 a:hover { text-decoration: underline; }
+.necrologie-mini.empty {
+  /* Placeholder slot wanneer minder dan 3 begrafenissen — toont niets,
+     houdt grid-balans voor visuele consistentie */
+  opacity: 0.3;
+}
+
+.necrologie-strip {
+  margin-top: 8px;
+  padding: 18px 0;
+  border-top: 1px solid var(--paper-rule);
+  border-bottom: none;
+}
+.necrologie-strip .item .v {
+  word-break: break-all;
+  font-size: 12px;
+}
+
+.necrologie-viz svg { display: block; margin: 0 auto; }
+
 /* Watchlist sparkline-grid (markt-katern) */
 .watchlist-grid {
   display: grid;

@@ -373,7 +373,8 @@ const KATERN_DEFS = {
     label: 'Necrologie',
     tagline: 'gefalsifieerd · begraven · ritueel',
     sensors: [],
-    viz: null,
+    viz: 'necrologie',
+    layout: 'necrologie',
   },
 };
 
@@ -579,12 +580,105 @@ async function renderDashboard() {
 // Tijd-delta wordt berekend tegen de last-view BEFORE we recorden — daarna
 // pas overschrijven, anders is verschoven altijd false.
 
+// Necrologie-data fetching — apart pad omdat katern niet uit sensors bestaat
+// maar uit individuele begrafenis-files met YAML-frontmatter.
+async function fetchNecrologieEntries() {
+  let listing;
+  try {
+    const r = await fetch('/api/wiki?path=necrologie');
+    if (!r.ok) return [];
+    listing = await r.json();
+  } catch (e) { return []; }
+  if (!Array.isArray(listing)) return [];
+
+  const mdFiles = listing.filter(f =>
+    f && f.type === 'file' && f.name.endsWith('.md') && f.name !== 'SCHEMA.md'
+  );
+
+  const entries = await Promise.all(mdFiles.map(async f => {
+    try {
+      const content = await fetchFile(`necrologie/${f.name}`);
+      const fm = parseFrontmatter(content);
+      if (fm) fm._body = stripFrontmatter(content);
+      return fm;
+    } catch (e) { return null; }
+  }));
+
+  return entries.filter(Boolean);
+}
+
+// Minimale YAML-frontmatter-parser. Niet alle YAML — alleen `key: value`
+// (optioneel quoted) met enkele inspringings-niveau. Genoeg voor het
+// zes-velden-schema (id/naam/geboren/overleden/lifespan/doodsoorzaak/
+// achtergebleven). Niet rebuild-PyYAML.
+function parseFrontmatter(content) {
+  if (!content) return null;
+  const match = content.match(/^---\s*\n([\s\S]*?)\n---/);
+  if (!match) return null;
+  const fm = {};
+  for (const line of match[1].split('\n')) {
+    const m = line.match(/^(\w+):\s*(.*)$/);
+    if (!m) continue;
+    let value = m[2].trim();
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    fm[m[1]] = value;
+  }
+  return Object.keys(fm).length ? fm : null;
+}
+
+function stripFrontmatter(content) {
+  if (!content) return '';
+  const match = content.match(/^---[\s\S]*?\n---\s*\n?([\s\S]*)$/);
+  return match ? match[1] : content;
+}
+
+// Heuristische sort-key voor `overleden`-veld. Drie formats:
+//   - ISO YYYY-MM-DD → exact
+//   - Nederlandse maand-jaar → midpoint van die maand
+//   - "anti-fragile cycle N" → fallback naar 0 (sorteert achteraan)
+// Bewust geen cycle→date-mapping: anti-fragile data-cycles vs research-
+// cycles hebben verschillende cadenties, sustain-mapping is brittle.
+function overledenSortKey(s) {
+  if (!s) return 0;
+  const str = String(s);
+  const iso = str.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return new Date(`${iso[1]}-${iso[2]}-${iso[3]}`).getTime();
+  const months = {
+    jan:0,feb:1,mrt:2,maart:2,apr:3,april:3,mei:4,
+    jun:5,juni:5,jul:6,juli:6,aug:7,sep:8,okt:9,nov:10,dec:11,
+  };
+  const my = str.toLowerCase().match(/(jan|feb|mrt|maart|apr|april|mei|juni?|juli?|aug|sep|okt|nov|dec)\w*\s+(\d{4})/);
+  if (my) {
+    const monthKey = my[1].length > 5 ? my[1].slice(0, 4) : my[1];
+    const m = months[monthKey] ?? months[my[1]] ?? 0;
+    return new Date(parseInt(my[2], 10), m, 15).getTime();
+  }
+  return 0;
+}
+
 async function renderKatern(katernName) {
   const def = KATERN_DEFS[katernName];
   const view = document.getElementById('katern-view');
   if (!def || !view) return;
 
   const lastView = getKaternLastView(katernName);
+
+  // NECROLOGIE: aparte data-pad — fetch wiki/necrologie/*.md ipv sensors.
+  if (katernName === 'necrologie') {
+    const entries = await fetchNecrologieEntries();
+    // Sort newest-first by overleden-key.
+    entries.sort((a, b) => overledenSortKey(b.overleden) - overledenSortKey(a.overleden));
+    if (window.PulseKatern) {
+      window.PulseKatern.render({
+        view, katernName, def, entries, lastView,
+      });
+    }
+    recordKaternView(katernName);
+    return;
+  }
 
   await Promise.all([fetchSensorListing(), fetchRegistry()]);
   // Filter visible sensors. cortex / KANDIDAAT-VERWIJDERING worden door
@@ -907,7 +1001,9 @@ function handleRoute() {
     return;
   }
   // Katern routes: #<katern> en #<katern>/<sensor>
-  const katernMatch = hash.match(/^([a-z]+)(?:\/([a-z0-9\-]+))?$/);
+  // Sensor-segment accepteert lowercase + uppercase + digits + dash zodat
+  // necrologie-IDs (`H-CVD-12`) en sensor-aliases (`meta-stelling`) beide passen.
+  const katernMatch = hash.match(/^([a-z]+)(?:\/([A-Za-z0-9\-]+))?$/);
   if (katernMatch) {
     const [, katern, sensor] = katernMatch;
     if (KATERN_DEFS[katern]) {
@@ -916,8 +1012,14 @@ function handleRoute() {
         // op NEMESIS A/B ≥55%) toont deze view de huidige sensor-md direct
         // via document-view. URL kan een display-alias zijn (`meta-stelling`)
         // — translate terug naar file-naam (`machinekamer`) voor fetch.
+        // NECROLOGIE: deep-link is `#necrologie/<id>` waarbij id het filename
+        // prefix is (H-CVD-12 → necrologie/H-CVD-12.md). Pad-segment komt uit
+        // necrologie/, niet sensors/.
         document.getElementById('document-view').classList.add('active');
-        renderDocument(`sensors/${fileSensor(sensor)}.md`);
+        const docPath = (katern === 'necrologie')
+          ? `necrologie/${sensor}.md`
+          : `sensors/${fileSensor(sensor)}.md`;
+        renderDocument(docPath);
         recordView(katern, sensor);
       } else {
         // Laag 2 — katern-voorpagina.
