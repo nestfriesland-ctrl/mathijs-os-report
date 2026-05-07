@@ -366,7 +366,8 @@ const KATERN_DEFS = {
     label: 'Residu',
     tagline: 'meta · onverklaard · drift',
     sensors: ['observer-residue'],
-    viz: null,
+    viz: 'residu',
+    layout: 'lead', // observer-residue rendert als lead-article + heatmap, geen tile-grid
   },
   necrologie: {
     label: 'Necrologie',
