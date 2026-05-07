@@ -18,6 +18,24 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'POST only' });
   }
+
+  // Origin-check — weert drive-by browser-bots. Voor pulse N=1 op vaste
+  // Vercel-domein is dit voldoende defense. Curl-aanvaller met gespoofde
+  // Origin valt buiten dit threat-model en wordt door PAT-scoping (issue
+  // op wiki) op blast-radius beperkt.
+  const ALLOWED_ORIGINS = new Set([
+    'https://pulse-nestfriesland.vercel.app',
+  ]);
+  // Preview deploys hebben URL-pattern: pulse-<hash>-nestfriesland-ctrls-projects.vercel.app
+  const PREVIEW_RE = /^https:\/\/pulse-[a-z0-9]+-nestfriesland-ctrls-projects\.vercel\.app$/;
+  const origin = req.headers.origin || '';
+  const referer = req.headers.referer || '';
+  const refOrigin = referer ? new URL(referer).origin : '';
+  const ok = (o) => ALLOWED_ORIGINS.has(o) || PREVIEW_RE.test(o);
+  if (!ok(origin) && !ok(refOrigin)) {
+    return res.status(403).json({ error: 'origin not allowed' });
+  }
+
   const PAT = process.env.GITHUB_PAT;
   if (!PAT) {
     return res.status(500).json({ error: 'GITHUB_PAT not configured' });
