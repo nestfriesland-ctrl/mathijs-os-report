@@ -1024,6 +1024,72 @@ footer.editorial {
   letter-spacing: 0.18em;
 }
 
+/* Residu-heatmap (residu-katern, PR #7) */
+.residu-heatmap {
+  display: grid;
+  gap: 2px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.residu-heatmap .hm-cell {
+  background: rgba(22,20,15,0.04);
+  padding: 4px 0;
+  text-align: center;
+  color: var(--ink-soft);
+  min-height: 22px;
+}
+.residu-heatmap .hm-corner { background: transparent; }
+.residu-heatmap .hm-header {
+  font-family: var(--sans);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--ink-mute);
+  background: transparent;
+  border-bottom: 1px solid var(--paper-rule);
+  padding-bottom: 6px;
+}
+.residu-heatmap .hm-day {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-mute);
+  background: transparent;
+  text-align: right;
+  padding-right: 8px;
+}
+.residu-heatmap .hm-data { color: var(--ink); }
+.residu-heatmap .hm-cell-dark { color: var(--paper); }
+.hm-foot {
+  font-family: var(--sans);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--ink-mute);
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--paper-rule);
+}
+.hm-loading, .hm-empty {
+  font-family: var(--sans);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--ink-mute);
+  padding: 16px 0;
+  text-align: center;
+}
+
+/* Residu-lead — observer-residue als full-bleed lead binnen residu-katern */
+.residu-lead { padding-top: 8px; }
+.residu-lead .lead-body { column-count: 1; max-width: 720px; }
+.residu-lead .lead-body::first-letter {
+  /* Geen drop-cap voor observer-residue — sensor is technisch niet narratief */
+  font-family: var(--serif);
+  float: none;
+  font-size: inherit;
+  margin: 0;
+}
+
 /* Watchlist sparkline-grid (markt-katern) */
 .watchlist-grid {
   display: grid;

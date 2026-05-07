@@ -56,8 +56,8 @@
     }
     if (katernName === 'residu') {
       return `<div class="katern-empty">
-        <h3>Observer-residue wordt geseed in PR #7.</h3>
-        <p>Daily prompt schrijft één falsifieerbare stelling over jouw eigen leesgedrag — falsificatie-object, geen steering-signal.</p>
+        <h3>Observer-residue sensor wacht op wiki-merge.</h3>
+        <p>Daily prompt schrijft één falsifieerbare stelling over jouw eigen leesgedrag — falsificatie-object, geen steering-signal. BOOTSTRAP tot ≥14d window én ≥200 events.</p>
       </div>`;
     }
     if (katernName === 'necrologie') {
@@ -67,6 +67,43 @@
       </div>`;
     }
     return `<div class="katern-empty"><h3>Geen sensors om te tonen.</h3></div>`;
+  }
+
+  // Lead-style article voor RESIDU (één-sensor katern: observer-residue).
+  // Hergebruikt bestaande .lead-CSS — kicker + h1 + deck + body + falsifier-aside.
+  function leadHtml(slot) {
+    const u = U();
+    const { content, krant, regime, meta } = slot;
+    const headline = u.shapeHeadline(krant && krant.stelling)
+      || u.fallbackHeadline(content)
+      || 'Observer-residue';
+    const deck = u.shapeDeck(krant && krant.bewijs) || '';
+    const bodyHtml = u.shapeBody(krant && krant.les, krant && krant.actie);
+    const falsifier = u.extractFalsifier(krant && krant.stelling)
+      || u.extractFalsifier(krant && krant.actie)
+      || '';
+    const kickerCls = u.regimeKickerClass(regime);
+    const kickerText = regime
+      ? `Aandacht-residu · ${u.shortenRegime(regime)}`
+      : 'Aandacht-residu';
+
+    return `
+      <section class="lead residu-lead">
+        <div>
+          <div class="kicker ${kickerCls}">${u.escape(kickerText)}</div>
+          <h1>${u.escape(headline)}</h1>
+          ${deck ? `<p class="deck">${u.escape(deck)}</p>` : ''}
+          <div class="lead-body">${bodyHtml}</div>
+        </div>
+        <aside>
+          <div class="label">observatie-laag</div>
+          <h3>Strikt observatie</h3>
+          <p>Sensor beschrijft Mathijs's eigen leesgedrag op pulse. Geen feedback-loop terug naar andere sensors, geen ranking, geen advies — falsificatie-object.</p>
+          ${falsifier ? `<div class="falsifier">${u.escape(falsifier)}</div>` : ''}
+          ${meta && meta.lastUpdated ? `<div class="meta-row"><span>Run</span><span>${u.escape(meta.lastUpdated)}</span></div>` : ''}
+        </aside>
+      </section>
+    `;
   }
 
   function vizSlotHtml(vizKey) {
@@ -90,6 +127,16 @@
           <div class="viz-block">
             <div class="viz-label">Service uptime · laatste 30 dagen · groen = sensor-commit op die dag</div>
             <div id="machinekamer-uptime" class="uptime-strip-grid"></div>
+          </div>
+        </section>
+      `;
+    }
+    if (vizKey === 'residu') {
+      return `
+        <section class="katern-viz residu-viz">
+          <div class="viz-block">
+            <div class="viz-label">Aandacht-heatmap · 14 dagen × 6 katernen · cel-intensiteit = view-count</div>
+            <div id="residu-heatmap"></div>
           </div>
         </section>
       `;
@@ -123,6 +170,19 @@
 
     const vizHtml = def.viz ? vizSlotHtml(def.viz) : '';
 
+    // Layout-keuze:
+    //   'lead' (RESIDU): één sensor, gerenderd als lead-article + viz onder.
+    //   default: viz boven + tile-grid OF empty-state.
+    const useLead = def.layout === 'lead' && slotsData.length && slotsData[0].content;
+    let bodyHtml;
+    if (useLead) {
+      bodyHtml = `${leadHtml(slotsData[0])}${vizHtml}`;
+    } else if (slotsData.length) {
+      bodyHtml = `${vizHtml}<div class="tile-grid">${tilesHtml}</div>`;
+    } else {
+      bodyHtml = `${vizHtml}${emptyHtml(katernName)}`;
+    }
+
     view.innerHTML = `
       <div class="container katern-page">
         <header class="katern-header">
@@ -130,8 +190,7 @@
           <h1>${u.escape(def.label)}</h1>
           <div class="tagline">${u.escape(def.tagline)}</div>
         </header>
-        ${vizHtml}
-        ${slotsData.length ? `<div class="tile-grid">${tilesHtml}</div>` : tilesHtml}
+        ${bodyHtml}
       </div>
     `;
 
@@ -140,6 +199,8 @@
       window.PulseKaternViz.renderMarkt({ contents });
     } else if (def.viz === 'machinekamer' && window.PulseKaternViz) {
       window.PulseKaternViz.renderMachinekamer({ sensors });
+    } else if (def.viz === 'residu' && window.PulseKaternViz && window.PulseKaternViz.renderResidu) {
+      window.PulseKaternViz.renderResidu({ container: document.getElementById('residu-heatmap') });
     }
   }
 
