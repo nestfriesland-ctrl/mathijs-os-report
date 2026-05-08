@@ -1021,6 +1021,17 @@ function handleRoute() {
     recordView('doc', hash.slice(4));
     return;
   }
+  // NEMESIS-redactie — getrapte routes (#nemesis/today, #nemesis/tribunal,
+  // #nemesis/graveyard). Bron is wiki/sensors/nemesis-redactie.md.
+  if (hash.startsWith('nemesis/')) {
+    const sub = hash.slice(8);
+    document.getElementById('nemesis-view').classList.add('active');
+    const link = document.querySelector('[data-view="nemesis"]');
+    if (link) link.classList.add('active');
+    renderNemesisRoute(sub);
+    recordView('nemesis', sub);
+    return;
+  }
   // Katern routes: #<katern> en #<katern>/<sensor>
   // Sensor-segment accepteert lowercase + uppercase + digits + dash zodat
   // necrologie-IDs (`H-CVD-12`) en sensor-aliases (`meta-stelling`) beide passen.
@@ -1060,9 +1071,67 @@ function handleRoute() {
 document.querySelectorAll('.nav-links a').forEach(a => {
   a.addEventListener('click', e => {
     e.preventDefault();
-    navigate(a.dataset.view);
+    // NEMESIS-link gaat naar getrapte sub-route i.p.v. enkele view
+    if (a.dataset.view === 'nemesis') {
+      navigate('nemesis/today');
+    } else {
+      navigate(a.dataset.view);
+    }
   });
 });
+
+// --- NEMESIS-redactie ----------------------------------------------------
+// Fetch + parse wiki/sensors/nemesis-redactie.md, cache result, render
+// gevraagde sub-route in #nemesis-content. Voorpagina-tile (#nemesis-front)
+// op dashboard wordt apart gerenderd via renderNemesisVoorpagina tijdens
+// renderDashboard().
+
+let _nemesisCache = null;
+
+async function fetchNemesisRedactie() {
+  if (_nemesisCache) return _nemesisCache;
+  try {
+    const content = await fetchFile('sensors/nemesis-redactie.md');
+    if (!window.PulseNemesisRedactie) return null;
+    _nemesisCache = window.PulseNemesisRedactie.parse(content);
+    return _nemesisCache;
+  } catch (e) {
+    console.error('[nemesis] fetch failed', e);
+    return null;
+  }
+}
+
+async function renderNemesisRoute(sub) {
+  const container = document.getElementById('nemesis-content');
+  if (!container || !window.PulseNemesisRedactie) return;
+  container.innerHTML = '<section class="lead"><div class="loading">NEMESIS-redactie laadt…</div></section>';
+  const data = await fetchNemesisRedactie();
+  if (!data) {
+    container.innerHTML = '<section class="lead"><div class="loading">NEMESIS-redactie niet beschikbaar.</div></section>';
+    return;
+  }
+  if (sub === 'today') {
+    window.PulseNemesisRedactie.renderHoofdartikel({ container, data });
+  } else if (sub === 'tribunal') {
+    window.PulseNemesisRedactie.renderTribunaal({ container, data });
+  } else if (sub === 'graveyard') {
+    window.PulseNemesisRedactie.renderGraveyard({ container, data });
+  } else {
+    // Onbekende sub — fallback naar today
+    window.PulseNemesisRedactie.renderHoofdartikel({ container, data });
+  }
+}
+
+async function renderNemesisVoorpagina() {
+  const section = document.getElementById('nemesis-front');
+  if (!section || !window.PulseNemesisRedactie) return;
+  const data = await fetchNemesisRedactie();
+  if (!data) {
+    section.innerHTML = '<div class="loading">NEMESIS-redactie niet beschikbaar.</div>';
+    return;
+  }
+  window.PulseNemesisRedactie.renderVoorpagina({ section, data });
+}
 
 window.addEventListener('hashchange', handleRoute);
 
@@ -1078,6 +1147,9 @@ async function init() {
   try {
     await fetchTree();
     await renderDashboard();
+    // NEMESIS-redactie: render voorpagina-tile (best-effort, geen fail).
+    try { await renderNemesisVoorpagina(); }
+    catch (err) { console.warn('[nemesis] voorpagina render failed', err); }
     handleRoute();
   } catch (e) {
     const editorial = document.getElementById('editorial');

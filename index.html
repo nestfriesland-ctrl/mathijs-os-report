@@ -20,6 +20,7 @@
       <a href="#lichaam" data-view="lichaam">Lichaam</a>
       <a href="#residu" data-view="residu">Residu</a>
       <a href="#necrologie" data-view="necrologie">Necrologie</a>
+      <a href="#nemesis/today" data-view="nemesis">NEMESIS</a>
       <a href="#graph" data-view="graph">Graph</a>
     </div>
   </nav>
@@ -41,6 +42,9 @@
       <main class="container" id="editorial">
         <section class="lead" id="sec-lead"><div class="loading">lead laden…</div></section>
         <section class="fg-band" id="sec-fg"><div class="loading">sentiment laden…</div></section>
+        <section class="lead nemesis-lead" id="nemesis-front" data-section="nemesis">
+          <div class="loading">NEMESIS-redactie laadt…</div>
+        </section>
         <section class="heat-index" id="sec-heat">
           <div class="section-head">
             <h2>Heat Index</h2>
@@ -69,6 +73,10 @@
     </div>
 
     <div id="katern-view" class="view"></div>
+
+    <div id="nemesis-view" class="view">
+      <div class="container" id="nemesis-content"></div>
+    </div>
   </main>
 
   <div class="tooltip" id="tooltip"></div>
@@ -76,6 +84,7 @@
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
   <script src="/lib/kraken.js"></script>
   <script src="/lib/thermometer.js"></script>
   <script src="/lib/charts.js"></script>
@@ -91,6 +100,7 @@
   <script src="/components/katern-viz.js"></script>
   <script src="/components/residu-viz.js"></script>
   <script src="/components/necrologie-viz.js"></script>
+  <script src="/components/nemesis-redactie.js"></script>
   <script src="/components/katern.js"></script>
   <script src="/app.js"></script>
 </body>
