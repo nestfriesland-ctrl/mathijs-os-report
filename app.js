@@ -396,8 +396,8 @@ const KATERN_DEFS = {
   },
   lichaam: {
     label: 'Lichaam',
-    tagline: 'fysiologie · regime · herstel',
-    sensors: ['cortex'],
+    tagline: 'fysiologie · regime · falsificatie',
+    sensors: ['cortex', 'brier'],
     viz: null,
   },
   residu: {
@@ -1039,6 +1039,17 @@ function handleRoute() {
     recordView('doc', hash.slice(4));
     return;
   }
+  // Lichaam-redactie — getrapte routes (#lichaam/today, #lichaam/predictions,
+  // #lichaam/falsifier). Bron is wiki/sensors/cortex.md (+ optioneel brier.md).
+  if (hash.startsWith('lichaam/')) {
+    const sub = hash.slice(8);
+    document.getElementById('lichaam-view').classList.add('active');
+    const link = document.querySelector('[data-view="lichaam"]');
+    if (link) link.classList.add('active');
+    renderLichaamRoute(sub);
+    recordView('lichaam', sub);
+    return;
+  }
   // NEMESIS-redactie — getrapte routes (#nemesis/today, #nemesis/tribunal,
   // #nemesis/graveyard). Bron is wiki/sensors/nemesis-redactie.md.
   if (hash.startsWith('nemesis/')) {
@@ -1092,6 +1103,8 @@ document.querySelectorAll('.nav-links a').forEach(a => {
     // NEMESIS-link gaat naar getrapte sub-route i.p.v. enkele view
     if (a.dataset.view === 'nemesis') {
       navigate('nemesis/today');
+    } else if (a.dataset.view === 'lichaam') {
+      navigate('lichaam/today');
     } else {
       navigate(a.dataset.view);
     }
@@ -1151,6 +1164,68 @@ async function renderNemesisVoorpagina() {
   window.PulseNemesisRedactie.renderVoorpagina({ section, data });
 }
 
+// --- Lichaam-redactie ----------------------------------------------------
+// Fetch cortex.md (verplicht) + brier.md (optioneel — graceful null fallback),
+// parse via PulseLichaamRedactie, cache, dispatch naar voorpagina/today/
+// predictions/falsifier renderers. Brier is een nieuwe sensor en mag nog
+// ontbreken; we faliëren niet als de file 404't.
+
+let _lichaamCache = null;
+
+async function fetchLichaamData() {
+  if (_lichaamCache) return _lichaamCache;
+  if (!window.PulseLichaamRedactie) return null;
+
+  let cortexContent = null;
+  let brierContent = null;
+  try {
+    cortexContent = await fetchFile('sensors/cortex.md');
+  } catch (e) {
+    cortexContent = null;
+  }
+  try {
+    brierContent = await fetchFile('sensors/brier.md');
+  } catch (e) {
+    // brier.md is optioneel — graceful fallback.
+    brierContent = null;
+  }
+  if (!cortexContent && !brierContent) return null;
+
+  _lichaamCache = window.PulseLichaamRedactie.parse({ cortexContent, brierContent });
+  return _lichaamCache;
+}
+
+async function renderLichaamRoute(sub) {
+  const container = document.getElementById('lichaam-content');
+  if (!container || !window.PulseLichaamRedactie) return;
+  container.innerHTML = '<section class="lead"><div class="loading">Lichaam-redactie laadt…</div></section>';
+  const data = await fetchLichaamData();
+  if (!data) {
+    container.innerHTML = '<section class="lead"><div class="loading">Lichaam-redactie niet beschikbaar.</div></section>';
+    return;
+  }
+  if (sub === 'today') {
+    window.PulseLichaamRedactie.renderHoofdartikel({ container, data });
+  } else if (sub === 'predictions') {
+    window.PulseLichaamRedactie.renderPredictions({ container, data });
+  } else if (sub === 'falsifier') {
+    window.PulseLichaamRedactie.renderFalsifier({ container, data });
+  } else {
+    window.PulseLichaamRedactie.renderHoofdartikel({ container, data });
+  }
+}
+
+async function renderLichaamVoorpagina() {
+  const section = document.getElementById('lichaam-front');
+  if (!section || !window.PulseLichaamRedactie) return;
+  const data = await fetchLichaamData();
+  if (!data) {
+    section.innerHTML = '<div class="loading">Lichaam-redactie niet beschikbaar.</div>';
+    return;
+  }
+  window.PulseLichaamRedactie.renderVoorpagina({ section, data });
+}
+
 window.addEventListener('hashchange', handleRoute);
 
 // --- Init ----------------------------------------------------------------
@@ -1168,6 +1243,9 @@ async function init() {
     // NEMESIS-redactie: render voorpagina-tile (best-effort, geen fail).
     try { await renderNemesisVoorpagina(); }
     catch (err) { console.warn('[nemesis] voorpagina render failed', err); }
+    // Lichaam-redactie: render voorpagina-tile (best-effort, geen fail).
+    try { await renderLichaamVoorpagina(); }
+    catch (err) { console.warn('[lichaam] voorpagina render failed', err); }
     handleRoute();
   } catch (e) {
     const editorial = document.getElementById('editorial');
