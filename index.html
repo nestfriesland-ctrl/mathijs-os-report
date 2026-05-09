@@ -17,7 +17,7 @@
       <a href="#dashboard" data-view="dashboard" class="active">Dashboard</a>
       <a href="#markt" data-view="markt">Markt</a>
       <a href="#machinekamer" data-view="machinekamer">Machinekamer</a>
-      <a href="#lichaam" data-view="lichaam">Lichaam</a>
+      <a href="#lichaam/today" data-view="lichaam">Lichaam</a>
       <a href="#residu" data-view="residu">Residu</a>
       <a href="#necrologie" data-view="necrologie">Necrologie</a>
       <a href="#nemesis/today" data-view="nemesis">NEMESIS</a>
@@ -42,6 +42,9 @@
       <main class="container" id="editorial">
         <section class="lead" id="sec-lead"><div class="loading">lead laden…</div></section>
         <section class="fg-band" id="sec-fg"><div class="loading">sentiment laden…</div></section>
+        <section class="lead lichaam-lead" id="lichaam-front" data-section="lichaam">
+          <div class="loading">Lichaam-katern laadt...</div>
+        </section>
         <section class="lead nemesis-lead" id="nemesis-front" data-section="nemesis">
           <div class="loading">NEMESIS-redactie laadt…</div>
         </section>
@@ -74,6 +77,10 @@
 
     <div id="katern-view" class="view"></div>
 
+    <div id="lichaam-view" class="view">
+      <div class="container" id="lichaam-content"></div>
+    </div>
+
     <div id="nemesis-view" class="view">
       <div class="container" id="nemesis-content"></div>
     </div>
@@ -101,6 +108,7 @@
   <script src="/components/residu-viz.js"></script>
   <script src="/components/necrologie-viz.js"></script>
   <script src="/components/nemesis-redactie.js"></script>
+  <script src="/components/lichaam-redactie.js"></script>
   <script src="/components/katern.js"></script>
   <script src="/app.js"></script>
 </body>

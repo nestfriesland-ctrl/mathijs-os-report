@@ -1281,3 +1281,8 @@ footer.editorial {
   .katern-header h1 { font-size: 40px; }
   .uptime-row { grid-template-columns: 80px 1fr; }
 }
+
+.lichaam-triple .kicker:not(.bull):not(.bear),
+.lichaam-predictions .kicker:not(.bull):not(.bear),
+.lichaam-falsifier .kicker:not(.bull):not(.bear),
+.lichaam-falsifier-detail .kicker:not(.bull):not(.bear) { color: #5c3a1f; }
