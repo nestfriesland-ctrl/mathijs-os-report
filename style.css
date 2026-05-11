@@ -139,6 +139,35 @@ a { color: inherit; }
 .masthead .live-tape .delta-up { color: var(--bull); }
 .masthead .live-tape .delta-down { color: var(--bear); }
 .masthead .live-tape .stamp { color: var(--ink-mute); margin-left: 10px; }
+.pipeline-health-strip {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  padding: 6px 0 0;
+  border-top: 1px solid var(--paper-rule);
+  margin-top: 6px;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+}
+.pipeline-health-strip:hover,
+.pipeline-health-strip:focus { color: var(--ink); }
+.pipeline-health-strip .ph-label { color: var(--ink-mute); }
+.pipeline-health-strip .ph-state { font-weight: 600; color: var(--ink); }
+.pipeline-health-strip.gezond .ph-state { color: var(--bull); }
+.pipeline-health-strip.degraded .ph-state { color: var(--ink); }
+.pipeline-health-strip.kritiek .ph-state { color: var(--bear); }
+.pipeline-health-strip .ph-stat { color: var(--ink-soft); }
+.pipeline-health-strip .ph-stat.ok { color: var(--bull); }
+.pipeline-health-strip .ph-stat.stale { color: var(--ink); }
+.pipeline-health-strip .ph-stat.dood { color: var(--bear); }
+.pipeline-health-strip .ph-stat.uit { color: var(--ink-mute); }
 @keyframes pulse {
   0%,100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.55; transform: scale(0.85); }

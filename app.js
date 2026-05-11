@@ -1267,20 +1267,66 @@ async function init() {
 
   startLiveLoop();
 
+  renderPipelineHealth();
+
   // Wiki content refresh every 5 minutes — re-renders editorial + re-paints
   // live values into the freshly-rendered DOM.
   setInterval(async () => {
     cache = {};
     tree = null;
     registry = null;
+    _lichaamCache = null;
+    _nemesisCache = null;
     try {
       await fetchTree();
       if (document.getElementById('dashboard-view').classList.contains('active')) {
         await renderDashboard();
         injectLivePrices();
       }
+      renderPipelineHealth();
     } catch (e) { /* silent refresh failure */ }
   }, 300000);
+}
+
+// ─── Pipeline health strip ───────────────────────────────────────────
+async function renderPipelineHealth() {
+  const el = document.getElementById('pipeline-health');
+  if (!el) return;
+  try {
+    const content = await fetchFile('sensors/drift.md');
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    if (!fmMatch) { el.textContent = 'pipeline n/a'; return; }
+    const fm = {};
+    for (const line of fmMatch[1].split('\n')) {
+      const m = line.match(/^([a-z_0-9]+):\s*(.+)$/i);
+      if (m) fm[m[1]] = m[2].trim();
+    }
+    const live = parseInt(fm.sensors_live, 10);
+    const stale = parseInt(fm.sensors_stale, 10);
+    const dood = parseInt(fm.sensors_dood, 10);
+    const uit = parseInt(fm.sensors_bewust_uit, 10);
+    const health = fm.pipeline_health || 'UNKNOWN';
+    const cls = health === 'KRITIEK' ? 'kritiek' : health === 'DEGRADED' ? 'degraded' : 'gezond';
+    el.classList.remove('gezond', 'degraded', 'kritiek');
+    el.classList.add(cls);
+    const gezond = (Number.isFinite(live) && Number.isFinite(dood) && Number.isFinite(stale))
+      ? (live - dood - stale) : '—';
+    el.innerHTML =
+      `<span class="ph-label">pipeline</span>` +
+      `<span class="ph-state">${health}</span>` +
+      `<span class="ph-stat ok">${gezond} ok</span>` +
+      `<span class="ph-stat stale">${Number.isFinite(stale) ? stale : '—'} stale</span>` +
+      `<span class="ph-stat dood">${Number.isFinite(dood) ? dood : '—'} dood</span>` +
+      `<span class="ph-stat uit">${Number.isFinite(uit) ? uit : '—'} uit</span>`;
+    if (!el._wired) {
+      el._wired = true;
+      const go = () => { window.location.hash = '#markt'; };
+      el.addEventListener('click', go);
+      el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }});
+    }
+  } catch (e) {
+    el.textContent = 'pipeline n/a';
+  }
 }
 
 init();
