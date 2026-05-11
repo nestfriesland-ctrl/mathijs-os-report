@@ -19,7 +19,7 @@ const TENANT_CONFIG = {
   'mathijs.puls.frl': {
     name: 'mathijs',
     // Whitelist expliciet — SKYLD katern is tara-only en mag niet in mathijs-nav.
-    katernen: ['dashboard', 'markt', 'machinekamer', 'lichaam', 'residu', 'necrologie', 'nemesis'],
+    katernen: ['dashboard', 'markt', 'machinekamer', 'lichaam', 'residu', 'necrologie', 'nemesis', 'discrepanties'],
     accent: null,
   },
   'tara.puls.frl': {
@@ -1104,6 +1104,14 @@ function handleRoute() {
     recordView('graph');
     return;
   }
+  if (hash === 'discrepanties') {
+    document.getElementById('discrepanties-view').classList.add('active');
+    const link = document.querySelector('[data-view="discrepanties"]');
+    if (link) link.classList.add('active');
+    renderDiscrepanties();
+    recordView('discrepanties');
+    return;
+  }
   if (hash.startsWith('doc/')) {
     document.getElementById('document-view').classList.add('active');
     renderDocument(hash.slice(4));
@@ -1396,6 +1404,9 @@ async function init() {
       } else if (document.getElementById('katern-view').classList.contains('active')) {
         handleRoute();
       }
+      if (document.getElementById('discrepanties-view').classList.contains('active')) {
+        renderDiscrepanties();
+      }
     } catch (e) { /* silent refresh failure */ }
   }, 300000);
 }
@@ -1441,13 +1452,183 @@ async function renderPipelineHealth() {
     `<span class="ph-stat dood">${dood} dood</span>` +
     `<span class="ph-stat wacht">${wacht} wacht</span>` +
     `<span class="ph-stat uit">${gearchiveerd} uit</span>` +
-    `<span class="ph-stat discrepancies">${discrepancies} discrepanties</span>`;
+    `<span class="ph-stat discrepancies" data-jump="discrepanties" role="link" tabindex="0">${discrepancies} discrepanties</span>`;
+  // Discrepanties-span is een eigen mikpunt: klik → #discrepanties. Stop-
+  // propagation voorkomt dat de buiten-handler ook nog naar #markt navigeert.
+  const discEl = el.querySelector('[data-jump="discrepanties"]');
+  if (discEl && !discEl._wired) {
+    discEl._wired = true;
+    const goDisc = (e) => {
+      e.stopPropagation();
+      window.location.hash = '#discrepanties';
+    };
+    discEl.addEventListener('click', goDisc);
+    discEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goDisc(e); }
+    });
+  }
   if (!el._wired) {
     el._wired = true;
-    const go = () => { window.location.hash = '#markt'; };
+    const go = (e) => {
+      if (e.target && e.target.closest && e.target.closest('[data-jump]')) return;
+      window.location.hash = '#markt';
+    };
     el.addEventListener('click', go);
-    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }});
+    el.addEventListener('keydown', (e) => {
+      if (e.target && e.target.closest && e.target.closest('[data-jump]')) return;
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.location.hash = '#markt'; }
+    });
   }
+}
+
+// ─── Discrepanties-katern ─────────────────────────────────────────────
+//
+// Leest sensors/drift.md frontmatter (mechanical_discrepancies +
+// semantic_discrepancies) en parse't de gesplitste tabel uit de
+// ## Discrepancies sectie. Twee categorieën met verschillende kop-knoppen:
+// MITIGEER+LAAT-DOODGAAN voor mechanisch (concrete fix of bewust whitelisten),
+// ONDERZOEK+WONTFIX voor semantisch (sensor verdient consumer of niet).
+// Knoppen openen statische GitHub-issue templates met pre-filled velden;
+// geen API-calls vanuit pulse zelf.
+
+function parseDriftDiscrepancies(content) {
+  const out = { mechanical: [], semantic: [], cycle: null };
+  const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  if (fmMatch) {
+    const cm = fmMatch[1].match(/^cycle_count:\s*(\d+)/m);
+    if (cm) out.cycle = parseInt(cm[1], 10);
+  }
+  // Pak het ## Discrepancies blok t/m volgende ##-kop op H2 niveau.
+  const secMatch = content.match(/##\s+Discrepancies\s*\n([\s\S]*?)(?=\n##\s+\w|$)/);
+  if (!secMatch) return out;
+  const body = secMatch[1];
+  // Split sub-secties — ### Mechanisch / ### Semantisch.
+  const subs = body.split(/\n###\s+/).slice(1);
+  for (const sub of subs) {
+    const header = sub.split('\n', 1)[0].toLowerCase();
+    const bucket = header.startsWith('mechanisch') ? 'mechanical'
+      : header.startsWith('semantisch') ? 'semantic'
+      : null;
+    if (!bucket) continue;
+    for (const line of sub.split('\n')) {
+      if (!line.startsWith('|')) continue;
+      if (/^\|\s*[-: ]+\|/.test(line)) continue;            // separator
+      if (/^\|\s*Sensor\s*\|/i.test(line)) continue;        // header
+      const cols = line.split('|').map(s => s.trim());
+      if (cols[0] === '') cols.shift();
+      if (cols.length && cols[cols.length - 1] === '') cols.pop();
+      if (cols.length < 3) continue;
+      const [sensor, type, detail] = cols;
+      if (!sensor || !type) continue;
+      out[bucket].push({ sensor, type, detail: detail || '' });
+    }
+  }
+  return out;
+}
+
+function issueUrl(action, sensor, type, detail) {
+  const repo = 'nestfriesland-ctrl/wiki';
+  const titleMap = {
+    mitigeer: `[drift-mitigeer] ${sensor}: ${type}`,
+    laatdood: `[drift-laat-doodgaan] ${sensor}: ${type}`,
+    onderzoek: `[drift-onderzoek] ${sensor}: ${type}`,
+    wontfix: `[drift-wontfix] ${sensor}: ${type}`,
+  };
+  const labelMap = {
+    mitigeer: 'governance,drift-mitigeer',
+    laatdood: 'governance,drift-laat-doodgaan',
+    onderzoek: 'governance,drift-onderzoek',
+    wontfix: 'governance,drift-wontfix',
+  };
+  const templateMap = {
+    mitigeer: 'drift-discrepancy-mitigeer.md',
+    onderzoek: 'drift-discrepancy-onderzoek.md',
+  };
+  const title = encodeURIComponent(titleMap[action] || `[drift] ${sensor}: ${type}`);
+  const body = encodeURIComponent(
+    `Sensor: ${sensor}\nType: ${type}\nDetail: ${detail}\n\n` +
+    (action === 'mitigeer' ? 'Suggested fix: ' :
+     action === 'laatdood' ? 'Whitelist-entry voor sensors/drift-config.md:\n\n```yaml\nwhitelisted_discrepancies:\n  - ' + sensor + ':' + type + '\n```\n\nReden: ' :
+     action === 'onderzoek' ? 'Onderzoeksvraag: heeft deze sensor consumer-waarde? Zo ja, welke katern/aggregator?\n\nNotities: ' :
+     'WONTFIX-reden: sensor blijft draaien zonder consumer omdat — ')
+  );
+  const labels = labelMap[action] || 'governance';
+  const tpl = templateMap[action];
+  const tplParam = tpl ? `&template=${encodeURIComponent(tpl)}` : '';
+  return `https://github.com/${repo}/issues/new?title=${title}&body=${body}&labels=${encodeURIComponent(labels)}${tplParam}`;
+}
+
+function renderDiscrepantieCard(item, category) {
+  const U = window.PulseUtil;
+  const sensor = U.escape(item.sensor);
+  const type = U.escape(item.type);
+  const detail = U.escape(item.detail || '—');
+  const buttons = category === 'mechanical'
+    ? `<a class="dk-btn dk-btn-mit" href="${issueUrl('mitigeer', item.sensor, item.type, item.detail)}" target="_blank" rel="noopener">MITIGEER</a>` +
+      `<a class="dk-btn dk-btn-dood" href="${issueUrl('laatdood', item.sensor, item.type, item.detail)}" target="_blank" rel="noopener">LAAT-DOODGAAN</a>`
+    : `<a class="dk-btn dk-btn-onderzoek" href="${issueUrl('onderzoek', item.sensor, item.type, item.detail)}" target="_blank" rel="noopener">ONDERZOEK</a>` +
+      `<a class="dk-btn dk-btn-wontfix" href="${issueUrl('wontfix', item.sensor, item.type, item.detail)}" target="_blank" rel="noopener">WONTFIX</a>`;
+  return `<article class="dk-card dk-card-${category}">` +
+    `<header class="dk-card-head"><span class="dk-sensor">${sensor}</span><span class="dk-type">${type}</span></header>` +
+    `<p class="dk-detail">${detail}</p>` +
+    `<div class="dk-actions">${buttons}</div>` +
+    `</article>`;
+}
+
+async function renderDiscrepanties() {
+  const container = document.getElementById('discrepanties-content');
+  if (!container) return;
+  container.innerHTML = '<section class="lead"><div class="loading">Discrepanties laden…</div></section>';
+  let content;
+  try {
+    content = await fetchFile('sensors/drift.md');
+  } catch (e) {
+    container.innerHTML = '<section class="lead"><div class="loading bear-text">drift.md niet beschikbaar.</div></section>';
+    return;
+  }
+  const parsed = parseDriftDiscrepancies(content);
+  const mechCount = parsed.mechanical.length;
+  const semCount = parsed.semantic.length;
+
+  if (mechCount === 0 && semCount === 0) {
+    const cycle = parsed.cycle != null ? parsed.cycle : '—';
+    container.innerHTML =
+      `<section class="lead dk-empty">` +
+      `<h1>Discrepanties</h1>` +
+      `<p class="dim">Pipeline schoon. Geen discrepancies in drift cycle ${cycle}.</p>` +
+      `</section>`;
+    return;
+  }
+
+  let html = `<section id="discrepanties-katern" class="dk-katern">`;
+  html += `<header class="dk-masthead"><h1>Discrepanties</h1>` +
+    `<span class="dk-sub">drift cycle ${parsed.cycle != null ? parsed.cycle : '—'}</span></header>`;
+
+  html += `<section class="dk-bucket dk-bucket-mech">` +
+    `<h2>MECHANISCH (<span id="mech-count">${mechCount}</span>)</h2>` +
+    `<div id="mech-list" class="dk-list">`;
+  if (mechCount === 0) {
+    html += `<p class="dim">geen mechanische discrepancies</p>`;
+  } else {
+    for (const item of parsed.mechanical) {
+      html += renderDiscrepantieCard(item, 'mechanical');
+    }
+  }
+  html += `</div></section>`;
+
+  html += `<section class="dk-bucket dk-bucket-sem">` +
+    `<h2>SEMANTISCH (<span id="sem-count">${semCount}</span>)</h2>` +
+    `<div id="sem-list" class="dk-list">`;
+  if (semCount === 0) {
+    html += `<p class="dim">geen semantische discrepancies</p>`;
+  } else {
+    for (const item of parsed.semantic) {
+      html += renderDiscrepantieCard(item, 'semantic');
+    }
+  }
+  html += `</div></section>`;
+  html += `</section>`;
+  container.innerHTML = html;
 }
 
 // ─── Drift alarmstrook ────────────────────────────────────────────────
