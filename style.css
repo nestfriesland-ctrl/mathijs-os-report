@@ -5,7 +5,31 @@
  */
 
 :root {
-  --paper: #f4f1ea;
+  /* ─── Krant-fundament (editorial CSS fundament) ───────────────────── */
+  --krant-bg: #F8F5EE;
+  --krant-ink: #1A1814;
+  --krant-ink-muted: #5C564E;
+  --krant-rule: #D4CFC4;
+  --krant-accent: #A87B2E;
+  --krant-accent-neg: #7A2E2E;
+
+  --krant-serif: 'Lora', Georgia, serif;
+  --krant-sans: 'IBM Plex Sans', -apple-system, sans-serif;
+  --krant-mono: 'IBM Plex Mono', 'Menlo', monospace;
+
+  --krant-h1: 48px;
+  --krant-h2: 24px;
+  --krant-lead: 20px;
+  --krant-body: 16px;
+  --krant-quote: 32px;
+  --krant-caption: 14px;
+  --krant-meta: 11px;
+
+  --krant-gutter: 2.5rem;
+  --krant-margin: 2.5rem;
+
+  /* ─── Bestaande tokens (paper shifted naar cream voor consistentie) ─ */
+  --paper: #F8F5EE;
   --paper-rule: #d9d2c3;
   --ink: #1e1a12;
   --ink-soft: #524c40;
@@ -1434,3 +1458,180 @@ footer.editorial {
 .af-meta-grid { grid-template-columns: 1fr 1fr; gap: 24px; }
 .af-meta-col h3 { font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; font-weight: 600; color: var(--dk-accent); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 8px; }
 .af-empty { background: var(--paper); border-style: dashed; border-color: var(--dk-accent); }
+
+/* ════════════════════════════════════════════════════════════════════
+   KRANT-FUNDAMENT — editorial CSS systeem
+   Additief. Bestaande katernen blijven werken; nieuwe katernen erven
+   typografie, grid en cream-papier via .krant-* classes.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Body base — cream-papier, Lora als default serif voor krant-content */
+body {
+  background: var(--krant-bg);
+}
+
+/* Typografie utilities */
+.krant-h1 {
+  font-family: var(--krant-serif);
+  font-size: var(--krant-h1);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+  color: var(--krant-ink);
+  margin: 0;
+}
+.krant-h2 {
+  font-family: var(--krant-serif);
+  font-size: var(--krant-h2);
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--krant-ink);
+  margin: 0;
+}
+.krant-lead {
+  font-family: var(--krant-serif);
+  font-size: var(--krant-lead);
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--krant-ink);
+}
+.krant-body {
+  font-family: var(--krant-serif);
+  font-size: var(--krant-body);
+  line-height: 1.65;
+  color: var(--krant-ink);
+}
+.krant-quote {
+  font-family: var(--krant-serif);
+  font-size: var(--krant-quote);
+  font-style: italic;
+  line-height: 1.2;
+  color: var(--krant-accent);
+  border-left: 3px solid var(--krant-accent);
+  padding-left: 1.5rem;
+  margin: 1.5rem 0;
+}
+.krant-caption {
+  font-family: var(--krant-serif);
+  font-size: var(--krant-caption);
+  color: var(--krant-ink-muted);
+}
+.krant-meta {
+  font-family: var(--krant-mono);
+  font-size: var(--krant-meta);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--krant-ink-muted);
+}
+.krant-tag {
+  font-family: var(--krant-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--krant-bg);
+  background: var(--krant-accent);
+  padding: 2px 8px;
+  display: inline-block;
+}
+.krant-tag--neg { background: var(--krant-accent-neg); }
+
+/* Layout utilities */
+.krant-grid-2-1 {
+  display: grid;
+  grid-template-columns: 63% 1fr;
+  gap: var(--krant-gutter);
+}
+.krant-grid-1-2 {
+  display: grid;
+  grid-template-columns: 1fr 63%;
+  gap: var(--krant-gutter);
+}
+.krant-rule {
+  border: none;
+  border-top: 1px solid var(--krant-ink);
+  margin: 0 0 1.5rem;
+}
+.krant-rule-light {
+  border: none;
+  border-top: 0.5px solid var(--krant-rule);
+  margin: 1.5rem 0;
+}
+.krant-rule-double {
+  border: none;
+  border-top: 3px double var(--krant-ink);
+  margin: 0 0 1.5rem;
+}
+
+/* Drop cap — first letter krant-stijl */
+.krant-dropcap:first-letter {
+  font-size: 3.2em;
+  float: left;
+  line-height: 0.8;
+  margin: 0.05em 0.1em 0 0;
+  font-weight: 700;
+  color: var(--krant-accent);
+  font-family: var(--krant-serif);
+}
+
+/* Nameplate component */
+.krant-nameplate {
+  text-align: center;
+  padding-bottom: 1.5rem;
+  border-bottom: 3px double var(--krant-ink);
+  margin-bottom: 1.5rem;
+}
+.krant-nameplate-title {
+  font-family: var(--krant-serif);
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--krant-ink);
+}
+.krant-nameplate-sub {
+  font-family: var(--krant-sans);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--krant-ink-muted);
+  margin: 0.5rem 0 0;
+}
+
+/* Axioma-bar component — proven / refuted / empty */
+.krant-bar { display: flex; gap: 2px; }
+.krant-bar span {
+  width: 8px;
+  height: 12px;
+  border-radius: 1px;
+  display: inline-block;
+}
+.krant-bar .bar-proven  { background: var(--krant-accent); }
+.krant-bar .bar-refuted { background: var(--krant-accent-neg); }
+.krant-bar .bar-empty   { background: var(--krant-rule); }
+
+/* Katern-wrapper */
+.krant-katern {
+  padding: var(--krant-margin);
+  max-width: 900px;
+  margin: 0 auto;
+}
+.krant-katern-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.75rem;
+}
+.krant-katern-footer {
+  display: flex;
+  gap: 2rem;
+  padding-top: 1.5rem;
+  margin-top: 2rem;
+  border-top: 0.5px solid var(--krant-rule);
+  font-style: italic;
+  color: var(--krant-ink-muted);
+}
+.krant-katern-footer a {
+  color: var(--krant-accent);
+  text-decoration: none;
+}
+.krant-katern-footer a:hover { text-decoration: underline; }
