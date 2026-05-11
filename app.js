@@ -1122,7 +1122,7 @@ function handleRoute() {
     return;
   }
   // NEMESIS-redactie — getrapte routes (#nemesis/today, #nemesis/tribunal,
-  // #nemesis/graveyard). Bron is wiki/sensors/nemesis-redactie.md.
+  // #nemesis/graveyard). Bron is wiki/nemesis/redactie.md.
   if (hash.startsWith('nemesis/')) {
     const sub = hash.slice(8);
     document.getElementById('nemesis-view').classList.add('active');
@@ -1184,7 +1184,7 @@ document.querySelectorAll('.nav-links a').forEach(a => {
 });
 
 // --- NEMESIS-redactie ----------------------------------------------------
-// Fetch + parse wiki/sensors/nemesis-redactie.md, cache result, render
+// Fetch + parse wiki/nemesis/redactie.md, cache result, render
 // gevraagde sub-route in #nemesis-content. Voorpagina-tile (#nemesis-front)
 // op dashboard wordt apart gerenderd via renderNemesisVoorpagina tijdens
 // renderDashboard().
@@ -1194,7 +1194,7 @@ let _nemesisCache = null;
 async function fetchNemesisRedactie() {
   if (_nemesisCache) return _nemesisCache;
   try {
-    const content = await fetchFile('sensors/nemesis-redactie.md');
+    const content = await fetchFile('nemesis/redactie.md');
     if (!window.PulseNemesisRedactie) return null;
     _nemesisCache = window.PulseNemesisRedactie.parse(content);
     return _nemesisCache;

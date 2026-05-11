@@ -1,5 +1,5 @@
 // NEMESIS-redactie — getrapte krant-sectie + drie diepte-routes.
-// Parsed YAML-frontmatter uit wiki/sensors/nemesis-redactie.md (via js-yaml).
+// Parsed YAML-frontmatter uit wiki/nemesis/redactie.md (via js-yaml).
 // Vier renderers, allen hergebruik van bestaande CSS-klassen:
 //   renderVoorpagina  → spiegelt <section class="lead">
 //   renderHoofdartikel → hergebruikt lead-template volledig
