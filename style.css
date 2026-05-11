@@ -1389,3 +1389,29 @@ footer.editorial {
 
 /* Tara heeft alleen één katern (SKYLD); back-naar-dashboard heeft geen doel. */
 .tenant-tara .back-link { display: none; }
+
+/* ── Discrepanties-katern ─────────────────────────────────────────────── */
+:root { --dk-accent: #5a4a2a; }
+.dk-katern { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+.dk-masthead { border-bottom: 2px solid var(--dk-accent); margin-bottom: 24px; padding-bottom: 8px; display: flex; align-items: baseline; gap: 16px; }
+.dk-masthead h1 { font-family: 'Fraunces', serif; font-weight: 900; font-size: 36px; color: var(--dk-accent); margin: 0; letter-spacing: -0.01em; }
+.dk-sub { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-mute); text-transform: uppercase; letter-spacing: 0.08em; }
+.dk-bucket { margin-bottom: 32px; }
+.dk-bucket h2 { font-family: 'IBM Plex Sans Condensed', sans-serif; font-weight: 600; font-size: 14px; color: var(--dk-accent); letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 12px; border-bottom: 1px solid var(--paper-rule); padding-bottom: 6px; }
+.dk-list { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.dk-card { background: var(--paper); border: 1px solid var(--paper-rule); padding: 14px 16px; }
+.dk-card-mechanical { border-style: dashed; border-color: var(--dk-accent); }
+.dk-card-semantic   { border-style: solid;  border-color: var(--dk-accent); border-width: 1.5px; }
+.dk-card-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; margin-bottom: 8px; }
+.dk-sensor { font-family: 'IBM Plex Serif', serif; font-weight: 600; font-size: 15px; color: var(--ink); }
+.dk-type   { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--ink-mute); }
+.dk-detail { font-family: 'IBM Plex Serif', serif; font-size: 13px; color: var(--ink-soft); margin: 0 0 12px; line-height: 1.45; }
+.dk-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.dk-btn { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; padding: 6px 10px; text-decoration: none; border: 1px solid var(--dk-accent); color: var(--dk-accent); background: transparent; transition: background 0.15s; }
+.dk-btn:hover { background: var(--dk-accent); color: var(--paper); }
+.dk-btn-mit, .dk-btn-onderzoek { background: var(--dk-accent); color: var(--paper); }
+.dk-btn-mit:hover, .dk-btn-onderzoek:hover { background: var(--ink); border-color: var(--ink); }
+.dk-empty { text-align: center; padding: 80px 20px; }
+.dk-empty h1 { color: var(--dk-accent); font-family: 'Fraunces', serif; font-weight: 900; }
+.ph-stat.discrepancies[data-jump] { cursor: pointer; }
+.ph-stat.discrepancies[data-jump]:hover { text-decoration: underline; }
