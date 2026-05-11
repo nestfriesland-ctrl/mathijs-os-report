@@ -1635,3 +1635,288 @@ body {
   text-decoration: none;
 }
 .krant-katern-footer a:hover { text-decoration: underline; }
+
+/* ════════════════════════════════════════════════════════════════════
+   SKYLD EDITORIAL — full-screen krant-katern voor tara.puls.frl
+   ════════════════════════════════════════════════════════════════════ */
+
+.skyld-katern-wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem var(--krant-margin) 4rem;
+  background: var(--krant-bg);
+}
+.skyld-back-link {
+  display: inline-block;
+  margin-bottom: 1rem;
+  font-family: var(--krant-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--krant-ink-muted);
+  text-decoration: none;
+}
+.skyld-back-link:hover { color: var(--krant-accent); }
+
+.skyld-editorial {
+  font-family: var(--krant-serif);
+  color: var(--krant-ink);
+}
+
+/* Headline-briefing — kop als pull-quote, lead als kursieve subkop. */
+.skyld-headline {
+  padding: 2.5rem 0 2rem;
+  border-bottom: 3px double var(--krant-ink);
+  margin-bottom: 2rem;
+}
+.skyld-headline .krant-h1 {
+  margin: 0 0 1rem;
+  max-width: 22ch;
+}
+.skyld-headline .krant-lead {
+  margin: 0;
+  color: var(--krant-ink-muted);
+  font-size: 22px;
+}
+
+/* Scorebord — vier cellen op cream, dunne borders, geen achtergrond. */
+.skyld-scorebord {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--krant-ink);
+  border-bottom: 1px solid var(--krant-ink);
+  margin: 0 0 3rem;
+}
+.skyld-scorebord-cell {
+  padding: 1.5rem 1.5rem 1.5rem 0;
+  border-right: 0.5px solid var(--krant-rule);
+}
+.skyld-scorebord-cell:last-child { border-right: none; padding-right: 0; }
+.skyld-scorebord-cell .krant-meta {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+.skyld-bignum {
+  font-family: var(--krant-serif);
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1;
+  margin: 0;
+  color: var(--krant-ink);
+  letter-spacing: -0.01em;
+}
+.skyld-bignum.is-neg { color: var(--krant-accent-neg); }
+.skyld-scorebord-sub {
+  display: block;
+  margin-top: 0.5rem;
+  text-transform: none;
+  letter-spacing: 0.04em;
+}
+
+/* Pipeline-funnel — horizontale bars per layer, mosterd voor actief. */
+.skyld-funnel { margin: 0 0 3rem; }
+.skyld-funnel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.5rem;
+}
+.skyld-funnel-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.skyld-funnel-row {
+  display: grid;
+  grid-template-columns: 36px 110px 1fr 90px;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.4rem 0;
+  border-bottom: 0.5px solid var(--krant-rule);
+}
+.skyld-funnel-row:last-child { border-bottom: none; }
+.skyld-funnel-id {
+  font-family: var(--krant-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--krant-accent);
+  letter-spacing: 0.06em;
+}
+.skyld-funnel-label {
+  font-family: var(--krant-serif);
+  font-size: 16px;
+  color: var(--krant-ink);
+}
+.skyld-funnel-bar-wrap {
+  width: 100%;
+  height: 10px;
+  background: transparent;
+  border-left: 1px solid var(--krant-rule);
+}
+.skyld-funnel-bar {
+  height: 100%;
+  background: var(--krant-accent);
+  transition: width 0.4s ease;
+}
+.skyld-funnel-row.is-empty .skyld-funnel-bar { background: var(--krant-rule); }
+.skyld-funnel-row.is-empty .skyld-funnel-id { color: var(--krant-ink-muted); }
+.skyld-funnel-count {
+  font-family: var(--krant-mono);
+  font-size: 13px;
+  color: var(--krant-ink);
+  text-align: right;
+}
+
+/* Section heads — gedeeld tussen facturen en taken. */
+.skyld-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.5rem;
+}
+
+/* Bottom grid — taken links breed, facturen rechts smal. */
+.skyld-bottom-grid {
+  margin: 0 0 3rem;
+  align-items: start;
+}
+
+/* Facturen — compacte lijst, kleur per status. */
+.skyld-facturen { padding-left: 0; }
+.skyld-factuur-list {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+}
+.skyld-factuur-list:last-child { margin-bottom: 0; }
+.skyld-factuur {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "klant bedrag"
+    "meta  meta";
+  gap: 0.15rem 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 0.5px solid var(--krant-rule);
+  font-family: var(--krant-serif);
+  font-size: 15px;
+}
+.skyld-factuur-klant { grid-area: klant; color: var(--krant-ink); }
+.skyld-factuur-bedrag {
+  grid-area: bedrag;
+  font-family: var(--krant-mono);
+  font-size: 13px;
+  color: var(--krant-ink);
+}
+.skyld-factuur-meta {
+  grid-area: meta;
+  font-family: var(--krant-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--krant-ink-muted);
+  text-transform: uppercase;
+}
+.skyld-factuur--overdue .skyld-factuur-klant,
+.skyld-factuur--overdue .skyld-factuur-bedrag,
+.skyld-factuur--overdue .skyld-factuur-meta {
+  color: var(--krant-accent-neg);
+  font-weight: 600;
+}
+.skyld-factuur--overdue .skyld-factuur-bedrag,
+.skyld-factuur--overdue .skyld-factuur-meta {
+  font-family: var(--krant-mono);
+}
+.skyld-factuur--paid .skyld-factuur-klant,
+.skyld-factuur--paid .skyld-factuur-bedrag {
+  color: var(--krant-ink-muted);
+}
+
+/* Taken-briefing — pull-quote + lijst, geen checkboxes. */
+.skyld-taken { padding-right: 1rem; }
+.skyld-briefing {
+  margin: 1rem 0 2rem;
+  font-size: 22px;
+  line-height: 1.35;
+}
+.skyld-taken-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.skyld-taak {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 0.5px solid var(--krant-rule);
+  font-family: var(--krant-serif);
+  font-size: 16px;
+  color: var(--krant-ink);
+}
+.skyld-taak-deadline {
+  font-family: var(--krant-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--krant-ink-muted);
+  align-self: center;
+}
+.skyld-taak.is-urgent .skyld-taak-regel { font-weight: 500; }
+.skyld-taak.is-urgent .skyld-taak-deadline { color: var(--krant-accent-neg); }
+.skyld-taak.is-vervallen {
+  color: var(--krant-ink-muted);
+  font-style: italic;
+}
+.skyld-vervallen { margin-top: 2rem; }
+
+/* Daemon-strip — compact, mono, alleen zichtbaar bij afwijking. */
+.skyld-daemon-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  align-items: center;
+  padding: 1rem 0;
+  border-top: 0.5px solid var(--krant-rule);
+  border-bottom: 0.5px solid var(--krant-rule);
+  margin: 2rem 0 1.5rem;
+  font-family: var(--krant-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--krant-ink-muted);
+}
+.skyld-daemon-strip.is-healthy { opacity: 0.7; }
+.skyld-daemon-strip.is-alert { color: var(--krant-accent-neg); }
+.skyld-daemon-fact { white-space: nowrap; }
+
+/* Footer — links naar sensor en ctrl-engine. */
+.skyld-footer {
+  margin-top: 2rem;
+}
+
+/* Tenant-tara override — back-link is hidden globaal via .tenant-tara,
+   maar we tonen 'm in SKYLD-editorial omdat dit het enige scherm is. */
+.tenant-tara .skyld-back-link { display: inline-block; }
+
+/* Responsive — onder 720 valt het scorebord naar 2-koloms en grid naar stack. */
+@media (max-width: 900px) {
+  .skyld-scorebord { grid-template-columns: repeat(2, 1fr); }
+  .skyld-scorebord-cell:nth-child(2) { border-right: none; }
+  .skyld-scorebord-cell:nth-child(1),
+  .skyld-scorebord-cell:nth-child(2) {
+    border-bottom: 0.5px solid var(--krant-rule);
+  }
+  .skyld-bottom-grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+  .skyld-taken { padding-right: 0; }
+  .skyld-funnel-row { grid-template-columns: 32px 88px 1fr 70px; }
+  .skyld-headline .krant-h1 { font-size: 36px; }
+}
+@media (max-width: 600px) {
+  .skyld-headline .krant-h1 { font-size: 30px; }
+  .skyld-bignum { font-size: 32px; }
+}

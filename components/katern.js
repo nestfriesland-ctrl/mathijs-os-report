@@ -238,9 +238,29 @@
     `;
   }
 
-  function render({ view, katernName, def, sensors, contents, lastView, parseSensorMeta, parseRegime, parseKrant, displaySensor, isKandidaat, entries }) {
+  function render({ view, katernName, def, sensors, contents, lastView, parseSensorMeta, parseRegime, parseKrant, parseFrontmatter, displaySensor, isKandidaat, entries }) {
     if (!view || !def) return;
     const u = U();
+
+    // SKYLD-editorial — bypass tile-grid en katern-header. Het hele scherm is
+    // van SKYLD; nameplate + editorial layout via aparte component.
+    if (def.layout === 'skyld-editorial' && window.PulseSkyldEditorial) {
+      const primary = (sensors && sensors[0]) || 'skyld';
+      const content = (contents && contents[primary]) || '';
+      view.innerHTML = `
+        <div class="container katern-page skyld-katern-wrap">
+          <a href="#dashboard" class="back-link skyld-back-link">← Dashboard</a>
+          <div id="skyld-editorial-mount"></div>
+        </div>
+      `;
+      window.PulseSkyldEditorial.render({
+        container: document.getElementById('skyld-editorial-mount'),
+        content,
+        parseFrontmatter,
+        parseKrant,
+      });
+      return;
+    }
 
     const vizHtml = def.viz ? vizSlotHtml(def.viz) : '';
 
