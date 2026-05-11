@@ -460,6 +460,7 @@ const KATERN_DEFS = {
     sensors: ['skyld'],
     viz: null,
     accent: '#1d6b5c',
+    layout: 'skyld-editorial',
   },
 };
 
@@ -794,6 +795,7 @@ async function renderKatern(katernName) {
       parseSensorMeta,
       parseRegime,
       parseKrant,
+      parseFrontmatter,
       displaySensor,
       isKandidaat,
     });
