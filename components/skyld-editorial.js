@@ -376,6 +376,51 @@
     `;
   }
 
+  // --- placeholder-katernen (Tara multi-katern structuur) ---------------
+  //
+  // Tara heeft (nog) maar één echte data-bron: SKYLD. Maar het krant-gevoel
+  // van mathijs.puls.frl vraagt om meerdere secties op de voorpagina. Daarom
+  // rendert tara onder de SKYLD-editorial drie placeholder-katernen — pure
+  // structuur, geen data. Worden gevuld zodra de bijbehorende sensors live
+  // zijn (outreach-batches, voorraad-sensor, segment-tagging in NOF).
+  //
+  // Geen nieuwe CSS: bestaande .krant-* classes + inline border-top voor de
+  // scheiding tussen katernen (zelfde patroon als mathijs-katernen).
+
+  function placeholderKaternenHtml() {
+    const sep = 'border-top: 1px solid var(--krant-ink); margin-top: 2rem; padding-top: 2rem;';
+    const leadStyle = 'color: var(--krant-ink-muted);';
+    const katernen = [
+      {
+        titel: 'Outreach',
+        meta: 'binnenkort',
+        lead: 'Sniper-batches, open rates, replies. Wordt gevuld zodra de eerste batch verstuurd is.',
+      },
+      {
+        titel: 'Voorraad & Leveringen',
+        meta: 'binnenkort',
+        lead: 'Voorraadstand, lopende leveringen, wachtend op betaling. Wordt gevuld zodra de voorraadsensor live is.',
+      },
+      {
+        titel: 'Pipeline Noordoost-Friesland',
+        meta: 'zorg-segment',
+        lead: 'Zorg-prospects in NOF — aantallen, scores, snipe-ready. Wordt gevuld na segment-tagging.',
+      },
+    ];
+    return katernen.map(k => `
+      <div class="krant-katern" style="${sep}">
+        <div class="krant-katern-head">
+          <h2 class="krant-h2">${k.titel}</h2>
+          <span class="krant-meta">${k.meta}</span>
+        </div>
+        <hr class="krant-rule-light">
+        <p class="krant-lead" style="${leadStyle}">
+          ${k.lead}
+        </p>
+      </div>
+    `).join('');
+  }
+
   // --- footer -----------------------------------------------------------
 
   function footerHtml(fm) {
@@ -442,6 +487,8 @@
             ${takenSectionHtml(fm, bodyMd)}
           </aside>
         </div>
+
+        ${placeholderKaternenHtml()}
 
         ${footerHtml(fm)}
 
