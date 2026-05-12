@@ -12,6 +12,7 @@
   --krant-rule: #D4CFC4;
   --krant-accent: #A87B2E;
   --krant-accent-neg: #7A2E2E;
+  --krant-accent-pos: #3B6D11;
 
   --krant-serif: 'Lora', Georgia, serif;
   --krant-sans: 'IBM Plex Sans', -apple-system, sans-serif;
@@ -1541,6 +1542,11 @@ body {
   grid-template-columns: 63% 1fr;
   gap: var(--krant-gutter);
 }
+.krant-grid-62-38 {
+  display: grid;
+  grid-template-columns: 62% 38%;
+  gap: var(--krant-gutter);
+}
 .krant-grid-1-2 {
   display: grid;
   grid-template-columns: 1fr 63%;
@@ -1638,6 +1644,10 @@ body {
 
 /* ════════════════════════════════════════════════════════════════════
    SKYLD EDITORIAL — full-screen krant-katern voor tara.puls.frl
+   Volgt het goedgekeurde mockup: nameplate + mono pipeline-strip,
+   36px Lora headline + italic lead, 62/38 grid, scorebord met verticale
+   delers, mosterd-op-grijs pipeline-bars, mono daemon-strip, sidebar met
+   factuur/taakregels en mono-totalen.
    ════════════════════════════════════════════════════════════════════ */
 
 .skyld-katern-wrap {
@@ -1663,11 +1673,9 @@ body {
   color: var(--krant-ink);
 }
 
-/* Pipeline-strip — mono one-liner onder de nameplate. Identiek qua functie
-   aan de pipeline-health-strip op mathijs.puls.frl: één samenvattende regel,
-   geen achtergrond, dunne onderlijn. */
-.skyld-strip {
-  margin: 0 0 2.5rem;
+/* Pipeline-strip — mono one-liner onder nameplate. */
+.krant-pipeline-strip {
+  margin: 0 0 2rem;
   padding: 0 0 1.25rem;
   border-bottom: 0.5px solid var(--krant-rule);
   font-family: var(--krant-mono);
@@ -1678,133 +1686,210 @@ body {
   text-align: center;
 }
 
-/* Asymmetrisch grid — hoofdkolom (63%) / sidebar (37%) via .krant-grid-2-1.
-   align-items:start zodat sidebar bovenin uitlijnt met de hoofdkop. */
+/* Headline-blok — 36px Lora bold + 18px italic lead. */
+.skyld-headline { margin: 0 0 2rem; }
+.krant-headline {
+  font-family: var(--krant-serif);
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  color: var(--krant-ink);
+  margin: 0 0 0.75rem;
+  max-width: 28ch;
+}
+.skyld-headline .krant-lead {
+  font-size: 18px;
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--krant-ink);
+  margin: 0;
+  max-width: 60ch;
+}
+
+/* Asymmetrisch 62/38 grid. */
 .skyld-krant-grid { align-items: start; }
 .skyld-hoofd { min-width: 0; padding-right: 0.5rem; }
-.skyld-hoofd .krant-h1 { margin: 0 0 1.25rem; max-width: 22ch; }
-.skyld-hoofd .krant-body { margin: 0 0 2.5rem; }
-
-/* Inline scorebord — drie getallen naast elkaar, geen cards. Witruimte
-   doet het werk; geen borders rondom de cellen. */
-.skyld-inline-scorebord {
-  display: flex;
-  gap: 3rem;
-  margin: 0 0 3rem;
-  align-items: baseline;
-  flex-wrap: wrap;
+.skyld-hoofd .krant-body {
+  margin: 0 0 2.5rem;
+  font-size: 16px;
+  line-height: 1.65;
 }
-.skyld-inline-cell { display: flex; flex-direction: column; gap: 0.35rem; }
-.skyld-inline-num {
+
+/* Scorebord — drie cellen, 28px Lora getal, 10px mono label, dunne
+   vertikale delers tussen cellen. Border-top 1px solid ink, border-
+   bottom 0.5px solid rule. Geen achtergrondkleur. */
+.krant-scorebord {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--krant-ink);
+  border-bottom: 0.5px solid var(--krant-rule);
+  margin: 0 0 2.5rem;
+}
+.krant-scorebord-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 1rem 1.25rem;
+  border-left: 0.5px solid var(--krant-rule);
+}
+.krant-scorebord-cell:first-child { border-left: none; }
+.krant-scorebord-num {
   font-family: var(--krant-serif);
-  font-size: 44px;
+  font-size: 28px;
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.01em;
   color: var(--krant-ink);
 }
-.skyld-inline-num.is-neg { color: var(--krant-accent-neg); }
+.krant-scorebord-num.is-neg { color: var(--krant-accent-neg); }
+.krant-scorebord-label {
+  font-family: var(--krant-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--krant-ink-muted);
+}
 
-/* Pipeline-bars — twee horizontale bars met echte verhouding. */
-.skyld-pipeline { margin: 0 0 1rem; }
-.skyld-pipeline-rows { display: flex; flex-direction: column; gap: 0.5rem; }
-.skyld-pipeline-row {
+/* Pipeline-bars — proportioneel, mosterd-fill op grijs track, mono labels. */
+.krant-pipeline-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0 0 2.5rem;
+}
+.krant-pipeline-row {
   display: grid;
-  grid-template-columns: 110px 1fr 90px;
+  grid-template-columns: 110px 1fr 70px;
   align-items: center;
   gap: 1rem;
-  padding: 0.5rem 0;
-  border-bottom: 0.5px solid var(--krant-rule);
 }
-.skyld-pipeline-row:last-child { border-bottom: none; }
-.skyld-pipeline-label {
-  font-family: var(--krant-serif);
-  font-size: 15px;
-  color: var(--krant-ink);
+.krant-pipeline-row-label {
+  font-family: var(--krant-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--krant-ink-muted);
 }
-.skyld-pipeline-bar-wrap {
+.krant-pipeline-row-track {
   width: 100%;
   height: 10px;
-  background: transparent;
-  border-left: 1px solid var(--krant-rule);
+  background: var(--krant-rule);
 }
-.skyld-pipeline-bar {
+.krant-pipeline-row-fill {
   height: 100%;
   background: var(--krant-accent);
   transition: width 0.4s ease;
 }
-.skyld-pipeline-row.is-empty .skyld-pipeline-bar { background: var(--krant-rule); }
-.skyld-pipeline-count {
+.krant-pipeline-row-count {
   font-family: var(--krant-mono);
-  font-size: 13px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
   color: var(--krant-ink);
   text-align: right;
 }
 
-/* Sidebar — dunne verticale lijn links voor visuele scheiding, geen card. */
+/* Daemon-strip onderaan hoofdkolom — 11px mono, kleur per regime. */
+.krant-daemon-strip {
+  margin: 0;
+  padding: 0.75rem 0 0;
+  border-top: 0.5px solid var(--krant-rule);
+  font-family: var(--krant-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+}
+
+/* Sidebar — dunne verticale lijn links, geen card. */
 .skyld-sidebar {
   border-left: 0.5px solid var(--krant-rule);
   padding-left: 1.75rem;
   min-width: 0;
 }
-.skyld-side-section { margin: 0 0 2.5rem; }
-.skyld-side-section:last-child { margin-bottom: 0; }
-.skyld-side-section .krant-h2 { margin: 0; }
-.skyld-side-section .krant-rule-light { margin: 0.5rem 0 0.75rem; }
-.skyld-side-line {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin: 0;
-  padding: 0.4rem 0;
-  border-bottom: 0.5px solid var(--krant-rule);
-  font-family: var(--krant-serif);
-  font-size: 15px;
-  color: var(--krant-ink);
-}
-.skyld-side-line:last-child { border-bottom: none; }
-.skyld-side-label {
-  font-family: var(--krant-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--krant-ink-muted);
-}
-.skyld-side-num {
-  font-family: var(--krant-mono);
-  font-size: 16px;
-  color: var(--krant-ink);
-}
-.skyld-side-line.is-neg .skyld-side-label,
-.skyld-side-line.is-neg .skyld-side-num { color: var(--krant-accent-neg); }
+.skyld-sidebar .krant-rule-light { margin: 1.5rem 0; }
 
-/* Taken-lijst — per taak: contactnaam (caption-serif, bold) boven
-   bedrijf · type · trigger (mono meta). Geen checkboxes, geen rijborder. */
-.skyld-taken-lijst {
+.krant-side-section { margin: 0; }
+.krant-side-head {
+  font-family: var(--krant-serif);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  color: var(--krant-ink);
+  margin: 0 0 0.5rem;
+}
+.krant-side-section .krant-rule-light { margin: 0 0 0.85rem; }
+
+.krant-side-list {
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  gap: 0.85rem;
 }
-.skyld-taak {
+.krant-side-item {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
 }
-.skyld-taak-naam {
+.krant-side-item-name {
+  font-family: var(--krant-serif);
+  font-size: 14px;
   font-weight: 700;
   color: var(--krant-ink);
+  line-height: 1.25;
+}
+.krant-side-item-meta {
+  font-family: var(--krant-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--krant-ink-muted);
+  line-height: 1.3;
+}
+.krant-side-item.is-neg .krant-side-item-name,
+.krant-side-item.is-neg .krant-side-item-meta { color: var(--krant-accent-neg); }
+.krant-side-item.is-muted .krant-side-item-name,
+.krant-side-item.is-muted .krant-side-item-meta { color: var(--krant-ink-muted); }
+
+/* Taak-totalenregel (urgent · gepland · vervallen) in 11px mono. */
+.krant-side-totalen {
+  margin: 0.85rem 0 0;
+  padding-top: 0.6rem;
+  border-top: 0.5px solid var(--krant-rule);
+  font-family: var(--krant-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--krant-ink-muted);
 }
 
-/* Footer — link naar ctrl-engine. */
-.skyld-footer { margin-top: 3rem; }
+/* "—" placeholder voor lege sidebar-secties. */
+.krant-side-empty {
+  margin: 0;
+  font-family: var(--krant-mono);
+  font-size: 13px;
+  color: var(--krant-ink-muted);
+}
 
-/* Tenant-tara override — back-link is hidden globaal via .tenant-tara,
-   maar we tonen 'm in SKYLD-editorial omdat dit het enige scherm is. */
+/* Footer — mono 11px met cycle-info rechts. */
+.skyld-footer {
+  margin-top: 3rem;
+  justify-content: space-between;
+  align-items: baseline;
+  font-style: normal;
+  font-family: var(--krant-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--krant-ink-muted);
+}
+.skyld-footer a {
+  font-family: var(--krant-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+/* Tenant-tara override — back-link tonen in SKYLD-editorial. */
 .tenant-tara .skyld-back-link { display: inline-block; }
 
 /* Responsive — sidebar onder hoofdkolom, lijn wordt boven-lijn. */
 @media (max-width: 900px) {
-  .skyld-krant-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+  .krant-grid-62-38 { grid-template-columns: 1fr; gap: 2.5rem; }
   .skyld-hoofd { padding-right: 0; }
   .skyld-sidebar {
     border-left: none;
@@ -1812,10 +1897,12 @@ body {
     padding-left: 0;
     padding-top: 2rem;
   }
-  .skyld-inline-scorebord { gap: 2rem; }
-  .skyld-inline-num { font-size: 36px; }
+  .krant-headline { font-size: 30px; }
+  .krant-scorebord-num { font-size: 24px; }
 }
 @media (max-width: 600px) {
-  .skyld-inline-num { font-size: 30px; }
-  .skyld-pipeline-row { grid-template-columns: 88px 1fr 70px; }
+  .krant-headline { font-size: 26px; }
+  .krant-scorebord { grid-template-columns: 1fr 1fr; }
+  .krant-scorebord-cell:nth-child(3) { border-top: 0.5px solid var(--krant-rule); grid-column: span 2; }
+  .krant-pipeline-row { grid-template-columns: 80px 1fr 60px; }
 }

@@ -1,13 +1,13 @@
 // SKYLD EDITORIAL — krant-voorpagina voor tara.puls.frl.
 //
-// Volgt de anatomie van mathijs.puls.frl: gecentreerde nameplate met dubbele
-// lijn, mono pipeline-strip, asymmetrisch 2:1 grid (hoofdkolom links,
-// sidebar rechts), footer. Witruimte en typografie scheiden de secties —
-// geen cards, geen achtergrondkleuren, geen borders rondom blokken.
+// Volgt het goedgekeurde mockup: gecentreerde SKYLD-nameplate met dubbele
+// onderlijn, mono pipeline-strip, 36px Lora headline + italic lead,
+// asymmetrisch 62/38 grid (hoofdkolom met dropcap-body, scorebord, pipeline-
+// bars, daemon-strip / sidebar met facturen + taken), mono footer.
 //
-// Data: scalar counts uit sensor-frontmatter (regime, enrichment_*, invoices_*,
-// tasks_*). De sensor exposed nog geen per-layer pipeline counts of factuur/
-// taken-lijsten — ontbrekende velden tonen we niet, we vullen ze niet aan.
+// Data: scalar counts uit sensor-frontmatter en de ## Taken tabel uit de
+// body. Ontbrekende velden tonen we als "—"; we vullen niks aan met
+// mockup-data.
 
 (function () {
   const U = () => window.PulseUtil;
@@ -21,118 +21,131 @@
   }
 
   function fmtNum(n) {
-    return n == null ? '—' : n.toLocaleString('nl-NL');
+    return n == null ? '—' : Number(n).toLocaleString('nl-NL');
   }
 
-  function hoursSince(iso) {
-    if (!iso) return null;
-    const ms = Date.now() - new Date(iso).getTime();
-    if (isNaN(ms)) return null;
-    return Math.max(0, Math.round(ms / 3_600_000));
+  function fmtDatum(d) {
+    return d.toLocaleDateString('nl-NL', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    });
+  }
+
+  function fmtZuluTime(iso) {
+    if (!iso || iso === 'never') return null;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    const mm = String(d.getUTCMinutes()).padStart(2, '0');
+    return `${hh}:${mm}z`;
   }
 
   function regimeWord(regime) {
+    if (regime === 'OPS_HEALTHY') return 'HEALTHY';
+    if (regime === 'OPS_ATTENTION') return 'ATTENTION';
+    if (regime === 'OPS_BLOCKED') return 'BLOCKED';
+    return regime ? regime.replace(/^OPS_/, '') : null;
+  }
+
+  function regimeLabelNl(regime) {
     if (regime === 'OPS_HEALTHY') return 'gezond';
     if (regime === 'OPS_ATTENTION') return 'attentie';
     if (regime === 'OPS_BLOCKED') return 'geblokkeerd';
-    return regime ? regime.replace(/^OPS_/, '').toLowerCase() : null;
+    return null;
   }
 
-  // --- headline + body proza --------------------------------------------
+  function regimeColor(regime) {
+    if (regime === 'OPS_HEALTHY') return 'var(--krant-accent-pos, #3B6D11)';
+    if (regime === 'OPS_BLOCKED') return 'var(--krant-accent-neg)';
+    return 'var(--krant-accent)';
+  }
 
-  // Eén leesbare openingszin op basis van regime + sensor-feiten. Geen
-  // dashboard-frasering ("SKYLD piept"), wel menselijke krantenkop.
+  // --- headline + lead --------------------------------------------------
+
   function buildHeadline(fm) {
     const regime = (fm.regime || '').toString();
     const errors = toInt(fm.enrichment_errors_24h);
-    const lastE = hoursSince(fm.last_enriched_at);
     const overdue = toInt(fm.invoices_overdue);
-    const urgent = toInt(fm.tasks_urgent);
+    const lastZ = fmtZuluTime(fm.last_enriched_at);
 
-    if (regime === 'OPS_BLOCKED') {
-      return 'Daemon staat. Backlog stapelt.';
+    if (regime === 'OPS_BLOCKED') return 'Daemon staat. Backlog stapelt.';
+    if (errors && errors > 0) return 'Errors in de pipeline. Daemon vraagt aandacht.';
+    if (regime === 'OPS_ATTENTION' && overdue > 0) {
+      return `Daemon verwerkt weer. ${fmtNum(overdue)} facturen overdue.`;
     }
-    if (errors > 0) {
-      return `Errors in de pipeline. Daemon vraagt aandacht.`;
-    }
-    if (lastE != null && lastE >= 24) {
-      return `Daemon stil sinds ${lastE} uur. Backlog stapelt.`;
-    }
-    if (regime === 'OPS_ATTENTION') {
-      const last = urgent > 0 ? `${urgent} urgente taken in de wacht.` : `Pipeline onder druk.`;
-      return `Daemon draait, mensen aan zet. ${last}`;
-    }
-    if (overdue > 0) {
-      return `Daemon verwerkt. Facturen vragen handwerk.`;
-    }
-    return 'Daemon verwerkt. Backlog daalt.';
+    if (regime === 'OPS_ATTENTION') return 'Daemon draait, mensen aan zet.';
+    if (overdue && overdue > 0) return `Daemon verwerkt. ${fmtNum(overdue)} facturen wachten op handwerk.`;
+    return lastZ ? `Daemon verwerkt. Pipeline gezond per ${lastZ}.` : 'Daemon verwerkt. Pipeline gezond.';
   }
 
-  // Body-paragraaf onder de h1 — leesbare proza met .krant-dropcap. Vertaalt
-  // de telde feiten naar een doorlopende zin (geen opsomming).
+  function buildLead(fm) {
+    const enriched = toInt(fm.enrichment_done);
+    const total = toInt(fm.contacts_total);
+    const pending = toInt(fm.enrichment_pending);
+    const urgent = toInt(fm.tasks_urgent);
+
+    if (enriched != null && total != null) {
+      const pct = total ? Math.round((enriched / total) * 100) : null;
+      const tail = urgent != null && urgent > 0
+        ? ` ${fmtNum(urgent)} urgente taken in de wacht.`
+        : (pending != null ? ` ${fmtNum(pending)} contacts wachten op verrijking.` : '');
+      return `${fmtNum(enriched)} van ${fmtNum(total)}${pct != null ? ` (${pct}%)` : ''} verrijkt.${tail}`;
+    }
+    if (enriched != null && pending != null) {
+      return `${fmtNum(enriched)} verrijkt, ${fmtNum(pending)} pending in de pipeline.`;
+    }
+    return '';
+  }
+
   function buildBody(fm) {
     const enriched = toInt(fm.enrichment_done);
     const pending = toInt(fm.enrichment_pending);
     const errors = toInt(fm.enrichment_errors_24h);
     const total = toInt(fm.contacts_total);
-    const lastE = hoursSince(fm.last_enriched_at);
+    const lastZ = fmtZuluTime(fm.last_enriched_at);
 
     const zinnen = [];
-
-    if (pending != null && enriched != null && total != null) {
+    if (total != null && enriched != null) {
       const pct = total ? Math.round((enriched / total) * 100) : null;
       zinnen.push(
-        `Van ${fmtNum(total)} contacts in de pool zijn er ${fmtNum(enriched)} verrijkt${pct != null ? ` (${pct}%)` : ''} ` +
-        `en wachten er ${fmtNum(pending)} op verwerking.`
+        `Van ${fmtNum(total)} contacts in de SKYLD-pool zijn er ${fmtNum(enriched)} verrijkt` +
+        (pct != null ? ` (${pct}%)` : '') +
+        (pending != null ? ` en wachten er ${fmtNum(pending)} op verwerking.` : '.')
       );
-    } else if (pending != null && enriched != null) {
-      zinnen.push(`${fmtNum(enriched)} verrijkt, ${fmtNum(pending)} pending in de pipeline.`);
     } else if (pending != null) {
       zinnen.push(`${fmtNum(pending)} contacts wachten op verrijking.`);
     }
-
     if (errors === 0) {
-      zinnen.push(lastE != null && lastE < 24
-        ? `Errors in de laatste 24 uur: nul; de daemon draait foutloos.`
-        : `Geen errors in het laatste venster.`);
+      zinnen.push('Geen errors in de laatste 24 uur — de daemon draait foutloos.');
     } else if (errors != null) {
-      zinnen.push(`${errors} ${errors === 1 ? 'error' : 'errors'} in de laatste 24 uur — ruimte voor aandacht.`);
+      zinnen.push(`${fmtNum(errors)} ${errors === 1 ? 'error' : 'errors'} in de laatste 24 uur — ruimte voor aandacht.`);
     }
-
-    if (lastE != null) {
-      zinnen.push(lastE === 0
-        ? `Laatste verrijking: minder dan een uur geleden.`
-        : `Laatste verrijking: ${lastE} uur geleden.`);
-    }
-
+    if (lastZ) zinnen.push(`Laatste verrijking liep om ${lastZ}.`);
     return zinnen.join(' ');
   }
 
-  // --- pipeline-strip (mono one-liner onder nameplate) ------------------
+  // --- pipeline-strip ---------------------------------------------------
 
   function pipelineStripHtml(fm) {
     const u = U();
     const regime = (fm.regime || '').toString();
     const word = regimeWord(regime);
+    const color = regimeColor(regime);
+
     const enriched = toInt(fm.enrichment_done);
-    const pending = toInt(fm.enrichment_pending);
-    const errors = toInt(fm.enrichment_errors_24h);
     const invOpen = toInt(fm.invoices_open);
     const tasksOpen = toInt(fm.tasks_open);
 
     const parts = [];
-    if (word) parts.push(`pipeline ${word}`);
-    if (enriched != null) parts.push(`${fmtNum(enriched)} verrijkt`);
-    if (pending != null) parts.push(`${fmtNum(pending)} pending`);
-    if (errors != null) parts.push(`${errors} errors/24u`);
-    if (invOpen != null) parts.push(`${invOpen} facturen`);
-    if (tasksOpen != null) parts.push(`${tasksOpen} taken`);
-
+    if (word) parts.push(`<span style="color:${color};font-weight:600">${u.escape(word)}</span>`);
+    if (enriched != null) parts.push(`${u.escape(fmtNum(enriched))} verrijkt`);
+    if (invOpen != null) parts.push(`${u.escape(fmtNum(invOpen))} facturen`);
+    if (tasksOpen != null) parts.push(`${u.escape(fmtNum(tasksOpen))} taken`);
     if (!parts.length) return '';
-    return `<p class="skyld-strip">${u.escape(parts.join('  ·  '))}</p>`;
+
+    return `<p class="krant-pipeline-strip">ops ${parts.join('  ·  ')}</p>`;
   }
 
-  // --- inline scorebord (drie getallen als typografie, geen cards) ------
+  // --- scorebord (3 cellen, vertikaal gescheiden) -----------------------
 
   function scorebordHtml(fm) {
     const u = U();
@@ -140,162 +153,265 @@
     const pending = toInt(fm.enrichment_pending);
     const errors = toInt(fm.enrichment_errors_24h);
 
-    const cells = [];
-    if (enriched != null) cells.push({ num: fmtNum(enriched), label: 'verrijkt' });
-    if (pending != null) cells.push({ num: fmtNum(pending), label: 'pending' });
-    if (errors != null) cells.push({ num: String(errors), label: 'errors / 24u', neg: errors > 0 });
-    if (!cells.length) return '';
+    const cells = [
+      { num: fmtNum(enriched), label: 'verrijkt' },
+      { num: fmtNum(pending), label: 'pending' },
+      { num: fmtNum(errors), label: 'errors / 24u', neg: (errors != null && errors > 0) },
+    ];
 
     return `
-      <div class="skyld-inline-scorebord">
+      <div class="krant-scorebord">
         ${cells.map(c => `
-          <div class="skyld-inline-cell">
-            <span class="skyld-inline-num${c.neg ? ' is-neg' : ''}">${u.escape(c.num)}</span>
-            <span class="krant-meta">${u.escape(c.label)}</span>
+          <div class="krant-scorebord-cell">
+            <span class="krant-scorebord-num${c.neg ? ' is-neg' : ''}">${u.escape(c.num)}</span>
+            <span class="krant-scorebord-label">${u.escape(c.label)}</span>
           </div>
         `).join('')}
       </div>
     `;
   }
 
-  // --- pipeline-bars (horizontale bars, echte verhouding) ---------------
+  // --- pipeline-bars ----------------------------------------------------
   //
-  // Sensor levert geen per-layer (L0–L4) counts. Tot die in de frontmatter
-  // staan, tonen we de echte enrichment-verhouding als twee bars. Niet
-  // verzonnen subverdeling — wat er is wordt getoond.
+  // Sensor exposeert (nog) geen per-laag L0–L6 counts; we tonen de echte
+  // verhouding uit de frontmatter (Verrijkt vs Pending) als horizontale
+  // bars met mosterd-fill op grijs track. Geen verzonnen sub-verdeling.
 
-  function pipelineHtml(fm) {
+  function pipelineBarsHtml(fm) {
     const u = U();
-    const enriched = toInt(fm.enrichment_done) || 0;
-    const pending = toInt(fm.enrichment_pending) || 0;
-    if (!enriched && !pending) return '';
-    const max = Math.max(enriched, pending, 1);
+    const enriched = toInt(fm.enrichment_done);
+    const pending = toInt(fm.enrichment_pending);
+    if (enriched == null && pending == null) return '';
+
     const rows = [
       { label: 'Verrijkt', count: enriched },
       { label: 'Pending',  count: pending },
     ];
+    const max = Math.max(...rows.map(r => r.count || 0), 1);
+
     return `
-      <section class="skyld-pipeline">
-        <h2 class="krant-h2">Pipeline</h2>
-        <hr class="krant-rule-light">
-        <div class="skyld-pipeline-rows">
-          ${rows.map(r => `
-            <div class="skyld-pipeline-row${r.count === 0 ? ' is-empty' : ''}">
-              <span class="skyld-pipeline-label">${u.escape(r.label)}</span>
-              <div class="skyld-pipeline-bar-wrap">
-                <div class="skyld-pipeline-bar" style="width:${Math.max(2, (r.count / max) * 100)}%;"></div>
+      <section class="krant-pipeline-section">
+        ${rows.map(r => {
+          const count = r.count == null ? null : r.count;
+          const width = count == null ? 0 : Math.max(2, (count / max) * 100);
+          return `
+            <div class="krant-pipeline-row">
+              <span class="krant-pipeline-row-label">${u.escape(r.label)}</span>
+              <div class="krant-pipeline-row-track">
+                <div class="krant-pipeline-row-fill" style="width:${width}%"></div>
               </div>
-              <span class="skyld-pipeline-count">${fmtNum(r.count)}</span>
+              <span class="krant-pipeline-row-count">${u.escape(fmtNum(count))}</span>
             </div>
-          `).join('')}
-        </div>
+          `;
+        }).join('')}
       </section>
     `;
   }
 
-  // --- sidebar: facturen + taken ---------------------------------------
+  // --- daemon-strip (onderaan hoofdkolom) -------------------------------
 
-  function sidebarSection(title, lines) {
-    if (!lines.length) return '';
+  function daemonStripHtml(fm) {
+    const u = U();
+    const regime = (fm.regime || '').toString();
+    const word = regimeLabelNl(regime);
+    const enriched = toInt(fm.enrichment_done);
+    const lastZ = fmtZuluTime(fm.last_enriched_at);
+
+    const parts = [];
+    if (word) parts.push(`daemon ${word}`);
+    if (enriched != null) parts.push(`${fmtNum(enriched)} verwerkt`);
+    if (lastZ) parts.push(`laatst actief ${lastZ}`);
+    if (!parts.length) return '';
+
+    const color = regime === 'OPS_HEALTHY'
+      ? 'var(--krant-accent-pos, #3B6D11)'
+      : regime === 'OPS_BLOCKED'
+        ? 'var(--krant-accent-neg)'
+        : 'var(--krant-accent)';
+
+    return `<p class="krant-daemon-strip" style="color:${color}">${u.escape(parts.join(' · '))}</p>`;
+  }
+
+  // --- factuur-regels (markdown ## Facturen, indien aanwezig) -----------
+
+  function parseFacturenSection(body) {
+    if (!body) return [];
+    const m = body.match(/##\s+Facturen\s*\n([\s\S]*?)(?:\n##\s|$)/);
+    if (!m) return [];
+    const rows = [];
+    for (const line of m[1].split('\n')) {
+      const t = line.trim();
+      if (!t.startsWith('|')) continue;
+      const cells = t.split('|').slice(1, -1).map(c => c.trim());
+      if (cells.length < 2) continue;
+      if (/^klant$/i.test(cells[0])) continue;
+      if (/^[-:\s]+$/.test(cells[0])) continue;
+      rows.push({
+        klant: cells[0],
+        bedrag: cells[1] || '',
+        status: cells[2] || '',
+        dagen: cells[3] || '',
+      });
+    }
+    return rows;
+  }
+
+  function facturenSectionHtml(fm, body) {
+    const u = U();
+    const open = toInt(fm.invoices_open);
+    const overdue = toInt(fm.invoices_overdue);
+    const rows = parseFacturenSection(body);
+
+    let inner = '';
+    if (rows.length) {
+      inner = rows.map(r => {
+        const isOverdue = /overdue|vervallen/i.test(r.status) || (r.dagen && /^\d+/.test(r.dagen));
+        const isPaid = /betaald/i.test(r.status);
+        const cls = isOverdue ? ' is-neg' : (isPaid ? ' is-muted' : '');
+        const metaParts = [r.bedrag, r.dagen || r.status].filter(Boolean);
+        return `
+          <div class="krant-side-item${cls}">
+            <span class="krant-side-item-name">${u.escape(r.klant)}</span>
+            <span class="krant-side-item-meta">${u.escape(metaParts.join(' · '))}</span>
+          </div>
+        `;
+      }).join('');
+    } else {
+      const lines = [];
+      if (open != null) lines.push({ label: 'open', num: fmtNum(open) });
+      if (overdue != null) lines.push({ label: 'overdue', num: fmtNum(overdue), neg: overdue > 0 });
+      if (!lines.length) {
+        inner = `<p class="krant-side-empty">—</p>`;
+      } else {
+        inner = lines.map(l => `
+          <div class="krant-side-item${l.neg ? ' is-neg' : ''}">
+            <span class="krant-side-item-name">${u.escape(l.label)}</span>
+            <span class="krant-side-item-meta">${u.escape(l.num)}</span>
+          </div>
+        `).join('');
+      }
+    }
+
     return `
-      <section class="skyld-side-section">
-        <h2 class="krant-h2">${title}</h2>
+      <section class="krant-side-section">
+        <h2 class="krant-side-head">FACTUREN</h2>
         <hr class="krant-rule-light">
-        ${lines.map(l => `
-          <p class="skyld-side-line${l.neg ? ' is-neg' : ''}">
-            <span class="skyld-side-label">${l.label}</span>
-            <span class="skyld-side-num">${l.num}</span>
-          </p>
-        `).join('')}
+        <div class="krant-side-list">${inner}</div>
       </section>
     `;
   }
 
-  // Parse ## Taken markdown-tabel uit de body. Sensor schrijft kolommen
-  // Contact | Bedrijf | Type | Prioriteit | Trigger. Onbekende kolomvolgorde
-  // is hier niet gepland — sensor is autoritatief over het schema.
+  // --- taken-regels (markdown ## Taken) ---------------------------------
+
   function parseTakenSection(body) {
     if (!body) return [];
     const m = body.match(/##\s+Taken\s*\n([\s\S]*?)(?:\n##\s|$)/);
     if (!m) return [];
-    const block = m[1];
     const rows = [];
-    for (const line of block.split('\n')) {
+    for (const line of m[1].split('\n')) {
       const t = line.trim();
       if (!t.startsWith('|')) continue;
       const cells = t.split('|').slice(1, -1).map(c => c.trim());
       if (cells.length < 4) continue;
-      // Skip header en separator-regels.
       if (/^contact$/i.test(cells[0])) continue;
       if (/^[-:\s]+$/.test(cells[0])) continue;
       rows.push({
         contact: cells[0],
-        company: cells[1],
-        type: cells[2],
-        priority: cells[3],
+        company: cells[1] || '',
+        type: cells[2] || '',
+        priority: cells[3] || '',
         trigger: cells[4] || '',
       });
     }
     return rows;
   }
 
-  function takenSectionHtml(taken) {
-    if (!taken.length) return '';
+  function takenSectionHtml(fm, body) {
     const u = U();
-    const items = taken.map(t => {
-      const meta = [t.company, t.type, t.trigger].filter(Boolean).join(' · ');
-      return `
-        <div class="skyld-taak">
-          <span class="krant-caption skyld-taak-naam">${u.escape(t.contact)}</span>
-          <span class="krant-meta">${u.escape(meta)}</span>
-        </div>
-      `;
-    }).join('');
+    const taken = parseTakenSection(body);
+    const open = toInt(fm.tasks_open);
+    const urgent = toInt(fm.tasks_urgent);
+
+    let inner;
+    if (taken.length) {
+      inner = taken.map(t => {
+        const isUrgent = /urgent/i.test(t.priority);
+        const meta = [t.company, t.type, t.trigger].filter(Boolean).join(' · ');
+        return `
+          <div class="krant-side-item${isUrgent ? ' is-neg' : ''}">
+            <span class="krant-side-item-name">${u.escape(t.contact)}</span>
+            <span class="krant-side-item-meta">${u.escape(meta)}</span>
+          </div>
+        `;
+      }).join('');
+    } else {
+      const lines = [];
+      if (open != null) lines.push({ label: 'open', num: fmtNum(open) });
+      if (urgent != null) lines.push({ label: 'urgent', num: fmtNum(urgent), neg: urgent > 0 });
+      inner = lines.length
+        ? lines.map(l => `
+            <div class="krant-side-item${l.neg ? ' is-neg' : ''}">
+              <span class="krant-side-item-name">${u.escape(l.label)}</span>
+              <span class="krant-side-item-meta">${u.escape(l.num)}</span>
+            </div>
+          `).join('')
+        : `<p class="krant-side-empty">—</p>`;
+    }
+
+    const totaalParts = [];
+    if (urgent != null) totaalParts.push(`${fmtNum(urgent)} urgent`);
+    if (open != null && urgent != null) totaalParts.push(`${fmtNum(Math.max(0, open - urgent))} gepland`);
+    else if (open != null) totaalParts.push(`${fmtNum(open)} open`);
+    const totaalLine = totaalParts.length
+      ? `<p class="krant-side-totalen">${u.escape(totaalParts.join(' · '))}</p>`
+      : '';
+
     return `
-      <section class="skyld-side-section">
-        <h2 class="krant-h2">Taken</h2>
+      <section class="krant-side-section">
+        <h2 class="krant-side-head">TAKEN</h2>
         <hr class="krant-rule-light">
-        <div class="skyld-taken-lijst">${items}</div>
+        <div class="krant-side-list">${inner}</div>
+        ${totaalLine}
       </section>
     `;
   }
 
-  function sidebarHtml(fm, body) {
-    const open = toInt(fm.invoices_open);
-    const overdue = toInt(fm.invoices_overdue);
-    const tasksOpen = toInt(fm.tasks_open);
-    const urgent = toInt(fm.tasks_urgent);
+  // --- footer -----------------------------------------------------------
 
-    const facturenLines = [];
-    if (open != null) facturenLines.push({ label: 'open', num: fmtNum(open) });
-    if (overdue != null && overdue > 0) facturenLines.push({ label: 'overdue', num: fmtNum(overdue), neg: true });
-
-    const taken = parseTakenSection(body);
-    const takenHtml = taken.length
-      ? takenSectionHtml(taken)
-      : sidebarSection('Taken', [
-          ...(tasksOpen != null ? [{ label: 'open', num: fmtNum(tasksOpen) }] : []),
-          ...(urgent != null && urgent > 0 ? [{ label: 'urgent', num: fmtNum(urgent), neg: true }] : []),
-        ]);
-
-    return sidebarSection('Facturen', facturenLines) + takenHtml;
+  function footerHtml(fm) {
+    const u = U();
+    const cycle = toInt(fm.cycle_count);
+    const lastAt = fm.last_attempted_at && fm.last_attempted_at !== 'never'
+      ? fmtZuluTime(fm.last_attempted_at)
+      : null;
+    const parts = [];
+    if (cycle != null) parts.push(`sensor cycle ${cycle}`);
+    if (lastAt) parts.push(`dispatch ${lastAt}`);
+    const right = parts.length ? `<span>${u.escape(parts.join(' · '))}</span>` : '';
+    return `
+      <footer class="krant-katern-footer skyld-footer">
+        <a href="https://app.skyld.nl" target="_blank" rel="noopener">ctrl-engine dashboard →</a>
+        ${right}
+      </footer>
+    `;
   }
 
   // --- root render ------------------------------------------------------
 
-  function render({ container, content, parseFrontmatter }) {
+  function render(opts) {
+    const container = opts && opts.container;
+    const content = (opts && opts.content) || '';
+    const parseFrontmatter = opts && opts.parseFrontmatter;
     if (!container) return;
+
     const u = U();
     const fm = (parseFrontmatter && parseFrontmatter(content)) || {};
     const bodyMd = (content || '').replace(/^---[\s\S]*?\n---\s*\n?/, '');
 
-    const today = new Date();
-    const datum = today.toLocaleDateString('nl-NL', {
-      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-    });
-
+    const datum = fmtDatum(new Date());
     const kop = buildHeadline(fm);
-    const body = buildBody(fm);
+    const lead = buildLead(fm);
+    const proza = buildBody(fm);
 
     container.innerHTML = `
       <div class="skyld-editorial">
@@ -307,22 +423,27 @@
 
         ${pipelineStripHtml(fm)}
 
-        <div class="krant-grid-2-1 skyld-krant-grid">
+        <header class="skyld-headline">
+          <h2 class="krant-headline">${u.escape(kop)}</h2>
+          ${lead ? `<p class="krant-lead">${u.escape(lead)}</p>` : ''}
+        </header>
+
+        <div class="krant-grid-62-38 skyld-krant-grid">
           <article class="skyld-hoofd">
-            <h1 class="krant-h1">${u.escape(kop)}</h1>
-            ${body ? `<p class="krant-body krant-dropcap">${u.escape(body)}</p>` : ''}
+            ${proza ? `<p class="krant-body krant-dropcap">${u.escape(proza)}</p>` : ''}
             ${scorebordHtml(fm)}
-            ${pipelineHtml(fm)}
+            ${pipelineBarsHtml(fm)}
+            ${daemonStripHtml(fm)}
           </article>
 
           <aside class="skyld-sidebar">
-            ${sidebarHtml(fm, bodyMd)}
+            ${facturenSectionHtml(fm, bodyMd)}
+            <hr class="krant-rule-light">
+            ${takenSectionHtml(fm, bodyMd)}
           </aside>
         </div>
 
-        <footer class="krant-katern-footer skyld-footer">
-          <a href="https://app.skyld.nl" target="_blank" rel="noopener">ctrl-engine dashboard →</a>
-        </footer>
+        ${footerHtml(fm)}
 
       </div>
     `;
