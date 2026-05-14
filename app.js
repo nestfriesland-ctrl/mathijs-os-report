@@ -19,7 +19,7 @@ const TENANT_CONFIG = {
   'mathijs.puls.frl': {
     name: 'mathijs',
     // Whitelist expliciet — SKYLD katern is tara-only en mag niet in mathijs-nav.
-    katernen: ['dashboard', 'markt', 'machinekamer', 'lichaam', 'residu', 'necrologie', 'nemesis', 'discrepanties', 'anti-fragile'],
+    katernen: ['dashboard', 'markt', 'machinekamer', 'lichaam', 'residu', 'necrologie', 'nemesis', 'discrepanties', 'anti-fragile', 'rate-complex', 'residueel-leren'],
     accent: null,
   },
   'tara.puls.frl': {
@@ -1122,6 +1122,22 @@ function handleRoute() {
     recordView('anti-fragile');
     return;
   }
+  if (hash === 'rate-complex') {
+    document.getElementById('rate-complex-view').classList.add('active');
+    const link = document.querySelector('[data-view="rate-complex"]');
+    if (link) link.classList.add('active');
+    renderRateComplex();
+    recordView('rate-complex');
+    return;
+  }
+  if (hash === 'residueel-leren') {
+    document.getElementById('residueel-leren-view').classList.add('active');
+    const link = document.querySelector('[data-view="residueel-leren"]');
+    if (link) link.classList.add('active');
+    renderResidueelLeren();
+    recordView('residueel-leren');
+    return;
+  }
   if (hash.startsWith('doc/')) {
     document.getElementById('document-view').classList.add('active');
     renderDocument(hash.slice(4));
@@ -1421,6 +1437,13 @@ async function init() {
       if (document.getElementById('anti-fragile-view').classList.contains('active')) {
         renderAntiFragile();
       }
+      if (document.getElementById('rate-complex-view').classList.contains('active')) {
+        _rateComplexCache = null;
+        renderRateComplex();
+      }
+      if (document.getElementById('residueel-leren-view').classList.contains('active')) {
+        renderResidueelLeren();
+      }
     } catch (e) { /* silent refresh failure */ }
   }, 300000);
 }
@@ -1620,6 +1643,34 @@ async function renderAntiFragile() {
   window.PulseAntiFragileKatern.render({ container, data });
 }
 
+// ─── Rate Complex katern ──────────────────────────────────────────────
+// Bron: wiki/sensors/rate-complex.md. Frontmatter + krant-body parsing
+// gebeurt in components/rate-complex-katern.js; deze functie regelt
+// alleen de fetch + render-pipeline.
+
+let _rateComplexCache = null;
+
+async function fetchRateComplexData() {
+  if (_rateComplexCache) return _rateComplexCache;
+  if (!window.PulseRateComplexKatern) return null;
+  let content;
+  try {
+    content = await fetchFile('sensors/rate-complex.md');
+  } catch (e) {
+    return null;
+  }
+  _rateComplexCache = window.PulseRateComplexKatern.parse(content);
+  return _rateComplexCache;
+}
+
+async function renderRateComplex() {
+  const container = document.getElementById('rate-complex-content');
+  if (!container || !window.PulseRateComplexKatern) return;
+  container.innerHTML = '<section class="lead"><div class="loading">Rente & Valuta katern laadt…</div></section>';
+  const data = await fetchRateComplexData();
+  window.PulseRateComplexKatern.render({ container, data });
+}
+
 async function renderDiscrepanties() {
   const container = document.getElementById('discrepanties-content');
   if (!container) return;
@@ -1674,6 +1725,138 @@ async function renderDiscrepanties() {
   html += `</div></section>`;
   html += `</section>`;
   container.innerHTML = html;
+}
+
+// ─── Residueel Leren — Errata & Correcties katern ─────────────────────
+//
+// Bron: wiki/sensors/residueel-leren.md. Format: frontmatter met counters
+// (correcties_total / proven / refuted) + ## Lead-paragraaf + reeks
+// ### #NNN · DATUM · KOP blokken met **bron:** / **status:** meta-regel,
+// dan een of meer paragrafen waarvan **Les:** en **Impact:** apart worden
+// gelift. Krant-laag: nameplate, dropcap-lead, errata-articles.
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  if (window.PulseUtil && window.PulseUtil.escape) return window.PulseUtil.escape(String(s));
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function parseResidueelLeren(md) {
+  const fm = {};
+  const yaml = md.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (yaml) {
+    for (const line of yaml[1].split(/\r?\n/)) {
+      const m = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*(.+)$/);
+      if (m) fm[m[1]] = m[2].trim();
+    }
+  }
+  const body = md.replace(/^---[\s\S]*?\n---\s*\n?/, '');
+  const leadMatch = body.match(/##\s*Lead\s*\n([\s\S]*?)(?=\n##|\n###|$)/i);
+  const lead = leadMatch ? leadMatch[1].trim() : '';
+  const articles = [];
+  const re = /###\s+#(\d+)\s*[·•]\s*(\d{4}-\d{2}-\d{2})\s*[·•]\s*([^\n]+)\n([\s\S]*?)(?=\n###\s+#\d+|\n##\s|$)/g;
+  let m;
+  while ((m = re.exec(body)) !== null) {
+    const block = m[4].trim();
+    const metaLine = block.match(/^\*\*bron:\*\*\s*([^|]+)\|\s*\*\*status:\*\*\s*(\w+)/i);
+    const bron = metaLine ? metaLine[1].trim() : '';
+    const status = metaLine ? metaLine[2].trim().toUpperCase() : '';
+    const rest = metaLine ? block.slice(metaLine[0].length).trim() : block;
+    const lesM = rest.match(/\*\*Les:\*\*\s*([\s\S]*?)(?=\n\*\*Impact:\*\*|$)/i);
+    const impM = rest.match(/\*\*Impact:\*\*\s*([\s\S]*?)$/i);
+    let prose = rest;
+    if (lesM) prose = prose.replace(lesM[0], '').trim();
+    if (impM) prose = prose.replace(impM[0], '').trim();
+    prose = prose.replace(/\n+/g, ' ').trim();
+    articles.push({
+      nr: m[1],
+      datum: m[2],
+      kop: m[3].trim(),
+      bron,
+      status,
+      prose,
+      les: lesM ? lesM[1].trim().replace(/\n+/g, ' ') : '',
+      impact: impM ? impM[1].trim().replace(/\n+/g, ' ') : '',
+    });
+  }
+  return { fm, lead, articles };
+}
+
+function fmtKortDatum(iso) {
+  const m = iso && iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return iso || '';
+  const dag = parseInt(m[3], 10);
+  const maandNl = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'][parseInt(m[2], 10) - 1];
+  return `${dag} ${maandNl} ${m[1]}`;
+}
+
+function statusClass(status) {
+  if (status === 'REFUTED') return 'errata-status errata-status-refuted';
+  if (status === 'PROVEN') return 'errata-status errata-status-proven';
+  return 'errata-status';
+}
+
+async function renderResidueelLeren() {
+  const container = document.getElementById('residueel-leren-content');
+  if (!container) return;
+  container.innerHTML = '<section class="lead"><div class="loading">Errata & Correcties laden…</div></section>';
+  let md;
+  try {
+    md = await fetchFile('sensors/residueel-leren.md');
+  } catch (e) {
+    container.innerHTML = '<section class="lead"><div class="loading">residueel-leren.md niet beschikbaar.</div></section>';
+    return;
+  }
+  const { fm, lead, articles } = parseResidueelLeren(md);
+
+  const datum = new Date().toLocaleDateString('nl-NL', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
+
+  const totaal = fm.correcties_total || articles.length;
+  const proven = fm.correcties_proven || articles.filter(a => a.status === 'PROVEN').length;
+  const refuted = fm.correcties_refuted || articles.filter(a => a.status === 'REFUTED').length;
+
+  const pipelineStrip = `${escapeHtml(totaal)} CORRECTIES · ${escapeHtml(proven)} BEKRACHTIGD · ${escapeHtml(refuted)} WEERLEGD · CONFIDENCE ${escapeHtml(fm.confidence || '—')}`;
+
+  const articlesHtml = articles.map(a => `
+    <article class="errata-article">
+      <header class="errata-head">
+        <span class="errata-num">#${escapeHtml(a.nr)}</span>
+        <span class="errata-date">${escapeHtml(fmtKortDatum(a.datum))}</span>
+        ${a.status ? `<span class="${statusClass(a.status)}">${escapeHtml(a.status)}</span>` : ''}
+      </header>
+      <h3 class="errata-kop">${escapeHtml(a.kop)}</h3>
+      ${a.bron ? `<p class="errata-bron">bron · ${escapeHtml(a.bron)}</p>` : ''}
+      ${a.prose ? `<p class="krant-body errata-prose">${escapeHtml(a.prose)}</p>` : ''}
+      ${a.les ? `<p class="errata-les"><span class="errata-tag">Les</span> ${escapeHtml(a.les)}</p>` : ''}
+      ${a.impact ? `<p class="errata-impact"><span class="errata-tag">Impact</span> ${escapeHtml(a.impact)}</p>` : ''}
+    </article>
+  `).join('');
+
+  container.innerHTML = `
+    <div class="krant-katern errata-katern">
+      <header class="krant-nameplate">
+        <h1 class="krant-nameplate-title">Errata &amp; Correcties</h1>
+        <p class="krant-nameplate-sub">Residueel leren — dispatch absorbeert haar fouten · ${escapeHtml(datum)}</p>
+      </header>
+
+      <p class="krant-pipeline-strip">${pipelineStrip}</p>
+
+      ${lead ? `<p class="krant-body krant-dropcap errata-lead">${escapeHtml(lead)}</p>` : ''}
+
+      <hr class="krant-rule-light">
+
+      <section class="errata-list">
+        ${articlesHtml || '<p class="dim">Geen correcties geregistreerd in deze cycle.</p>'}
+      </section>
+
+      <footer class="krant-katern-footer">
+        <span>Residu van de eigen dispatch. Compressie door correctie — niet door vergeten.</span>
+        <a href="#doc/sensors/residueel-leren.md">brondocument</a>
+      </footer>
+    </div>
+  `;
 }
 
 // ─── Drift alarmstrook ────────────────────────────────────────────────

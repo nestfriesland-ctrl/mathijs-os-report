@@ -1906,3 +1906,194 @@ body {
   .krant-scorebord-cell:nth-child(3) { border-top: 0.5px solid var(--krant-rule); grid-column: span 2; }
   .krant-pipeline-row { grid-template-columns: 80px 1fr 60px; }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   RATE COMPLEX — Rente & Valuta katern
+   Bron: wiki/sensors/rate-complex.md.
+   Regime-strip + yield curve SVG + spreads-tabel + DXY-tile + body.
+   Kleurcodering:
+     TIGHTENING  → brick-red  (var(--krant-accent-neg))
+     EASING      → groen      (var(--krant-accent-pos))
+     TRANSITION  → ink-muted
+     NEUTRAL     → mosterd    (var(--krant-accent))
+   ──────────────────────────────────────────────────────────────────── */
+
+.rc-katern { padding-bottom: 3rem; }
+.rc-nameplate h1 { font-family: var(--krant-serif); font-size: 42px; font-weight: 700; margin: 0; color: var(--krant-ink); }
+.rc-nameplate .krant-sub {
+  display: block;
+  font-family: var(--krant-sans);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--krant-ink-muted);
+  margin-top: 0.5rem;
+}
+
+/* Regime-strip ────────────────────────────────────────────────────── */
+.rc-regime-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0 0 1.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(168, 123, 46, 0.06);
+  border-left: 3px solid var(--krant-accent);
+}
+.rc-regime-badge,
+.rc-curve-badge,
+.rc-signal-badge,
+.rc-corr-badge {
+  font-family: var(--krant-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border: 0.5px solid var(--krant-rule);
+  color: var(--krant-ink);
+  background: var(--krant-bg);
+}
+.rc-regime-badge { font-weight: 600; }
+.rc-regime-tightening { background: var(--krant-accent-neg); color: var(--krant-bg); border-color: var(--krant-accent-neg); }
+.rc-regime-easing     { background: var(--krant-accent-pos); color: var(--krant-bg); border-color: var(--krant-accent-pos); }
+.rc-regime-transition { background: var(--krant-ink-muted); color: var(--krant-bg); border-color: var(--krant-ink-muted); }
+.rc-regime-neutral    { background: var(--krant-accent);     color: var(--krant-bg); border-color: var(--krant-accent); }
+
+.rc-curve-inverted { color: var(--krant-accent-neg); border-color: var(--krant-accent-neg); }
+.rc-curve-flat     { color: var(--krant-ink-muted); }
+.rc-curve-steep    { color: var(--krant-accent-pos); border-color: var(--krant-accent-pos); }
+.rc-curve-normal   { color: var(--krant-ink); }
+
+/* Grid: yield curve links / spreads rechts ────────────────────────── */
+.rc-grid {
+  display: grid;
+  grid-template-columns: 60% 1fr;
+  gap: 2rem;
+  margin-bottom: 1.75rem;
+  align-items: start;
+}
+.rc-section-h {
+  font-family: var(--krant-sans);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--krant-ink-muted);
+  margin: 0 0 0.6rem;
+  border-bottom: 0.5px solid var(--krant-rule);
+  padding-bottom: 4px;
+}
+
+/* Yield curve SVG ─────────────────────────────────────────────────── */
+.rc-curve-svg {
+  width: 100%;
+  height: auto;
+  max-height: 180px;
+  display: block;
+  background: var(--krant-bg);
+}
+.rc-curve-line {
+  fill: none;
+  stroke: var(--krant-accent);
+  stroke-width: 1.5;
+}
+.rc-curve-pt {
+  fill: var(--krant-ink);
+  stroke: var(--krant-bg);
+  stroke-width: 1.5;
+}
+.rc-curve-grid {
+  stroke: var(--krant-rule);
+  stroke-width: 0.5;
+  stroke-dasharray: 2 3;
+}
+.rc-curve-xlabel,
+.rc-curve-ytick {
+  font-family: var(--krant-mono);
+  font-size: 9px;
+  fill: var(--krant-ink-muted);
+  text-anchor: middle;
+}
+.rc-curve-ytick { text-anchor: end; }
+.rc-curve-vlabel {
+  font-family: var(--krant-mono);
+  font-size: 10px;
+  fill: var(--krant-ink);
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+/* DXY-tile ─────────────────────────────────────────────────────────── */
+.rc-dxy-tile {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border: 0.5px solid var(--krant-rule);
+  display: flex;
+  align-items: baseline;
+  gap: 0.85rem;
+  font-family: var(--krant-mono);
+}
+.rc-dxy-label {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--krant-ink-muted);
+}
+.rc-dxy-val {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--krant-ink);
+}
+.rc-dxy-delta {
+  font-size: 13px;
+  color: var(--krant-ink-muted);
+}
+.rc-arrow-up   { color: var(--krant-accent-pos); }
+.rc-arrow-down { color: var(--krant-accent-neg); }
+
+/* Spreads-tabel ───────────────────────────────────────────────────── */
+.rc-spreads {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--krant-mono);
+  font-size: 12px;
+}
+.rc-spreads td {
+  padding: 6px 0;
+  border-bottom: 0.5px dotted var(--krant-rule);
+}
+.rc-spreads td:first-child {
+  color: var(--krant-ink-muted);
+  letter-spacing: 0.04em;
+}
+.rc-sp-val {
+  text-align: right;
+  color: var(--krant-ink);
+  font-weight: 600;
+}
+.rc-sp-val.rc-sp-neg {
+  color: var(--krant-accent-neg);
+}
+
+/* Body — krant-kolom ──────────────────────────────────────────────── */
+.rc-body { max-width: 720px; }
+.rc-kop {
+  font-family: var(--krant-serif);
+  font-style: italic;
+  font-size: 18px;
+  line-height: 1.45;
+  color: var(--krant-accent);
+  border-left: 3px solid var(--krant-accent);
+  padding-left: 1rem;
+  margin: 0 0 1.5rem;
+}
+.rc-body .rc-section-h { margin-top: 1.25rem; }
+.rc-para {
+  margin: 0 0 1rem;
+}
+
+/* Responsive ──────────────────────────────────────────────────────── */
+@media (max-width: 760px) {
+  .rc-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+  .rc-nameplate h1 { font-size: 32px; }
+}
