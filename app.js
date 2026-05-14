@@ -409,6 +409,17 @@ const KATERN_DEFS = {
     viz: 'necrologie',
     layout: 'necrologie',
   },
+  // Memory-Sync — bron is wiki/HANDOVER.md + wiki/operations/sync_operational.md,
+  // geen sensor-file. Custom-renderer (renderMemorySync) wordt aangeroepen
+  // via renderKatern. Sensors-array blijft leeg zodat KATERN_MAP geen valse
+  // sensor→katern mappings krijgt.
+  sync: {
+    label: 'Memory-Sync',
+    tagline: 'machinekamer · heartbeat · consolidatie',
+    sensors: [],
+    viz: null,
+    layout: 'sync',
+  },
 };
 
 const KATERN_MAP = {};
@@ -692,7 +703,26 @@ function overledenSortKey(s) {
   return 0;
 }
 
+async function renderMemorySync() {
+  const view = document.getElementById('katern-view');
+  if (!view) return;
+  view.innerHTML = '<div class="container katern-page"><div class="loading">Sync-data laden…</div></div>';
+
+  let handoverContent = null;
+  let operationalContent = null;
+  try { handoverContent = await fetchFile('HANDOVER.md'); } catch (e) { /* missing */ }
+  try { operationalContent = await fetchFile('operations/sync_operational.md'); } catch (e) { /* missing */ }
+
+  if (window.PulseMemorySync) {
+    window.PulseMemorySync.render({ view, handoverContent, operationalContent });
+  }
+}
+
 async function renderKatern(katernName) {
+  if (katernName === 'sync') {
+    await renderMemorySync();
+    return;
+  }
   const def = KATERN_DEFS[katernName];
   const view = document.getElementById('katern-view');
   if (!def || !view) return;
