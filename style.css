@@ -1400,20 +1400,14 @@ footer.editorial {
 .al-chip:hover { background: rgba(255,255,255,0.3); }
 
 /* ── Tenant: Tara (tara.puls.frl) ─────────────────────────────────────── */
-.tenant-tara { --tenant-accent: #1d6b5c; }
-.tenant-tara .nav-brand::after {
-  content: ' · tara';
-  font-weight: 400;
-  opacity: 0.6;
-  font-size: 0.85em;
-}
+/* Nav-brand is via JS al naar 'TARA' gezet — geen pseudo-suffix nodig.
+   Accent: mosterd-bruin identiek aan Mathijs krant-accent, zodat de krant
+   visueel als één publicatie leest over beide tenants. */
+.tenant-tara { --tenant-accent: var(--krant-accent); }
 .tenant-tara .kicker.bull,
 .tenant-tara .kicker.neut { color: var(--tenant-accent); }
 .tenant-tara .katern-header h1 { color: var(--tenant-accent); }
 .tenant-tara .back-link { color: var(--tenant-accent); }
-
-/* Tara heeft alleen één katern (SKYLD); back-naar-dashboard heeft geen doel. */
-.tenant-tara .back-link { display: none; }
 
 /* ── Discrepanties-katern ─────────────────────────────────────────────── */
 :root { --dk-accent: #5a4a2a; }

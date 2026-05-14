@@ -18,14 +18,18 @@ const REGISTRY_PATH = 'operations/sensor-registry.md';
 const TENANT_CONFIG = {
   'mathijs.puls.frl': {
     name: 'mathijs',
+    nameplate: 'PULSE',
+    subtitle: null,
     // Whitelist expliciet — SKYLD katern is tara-only en mag niet in mathijs-nav.
     katernen: ['dashboard', 'markt', 'machinekamer', 'lichaam', 'residu', 'necrologie', 'nemesis', 'discrepanties', 'anti-fragile', 'rate-complex', 'residueel-leren'],
     accent: null,
   },
   'tara.puls.frl': {
     name: 'tara',
-    katernen: ['skyld'],   // alleen SKYLD katern
-    accent: '#1d6b5c',     // tara-teal
+    nameplate: 'TARA',
+    subtitle: 'De krant die het lichaam in cycli leest',
+    katernen: ['voorpagina', 'lichaam', 'skyld'],
+    accent: '#A87B2E',     // mosterd — identiek aan Mathijs krant-accent
   },
 };
 
@@ -38,6 +42,9 @@ function getTenant() {
 // hun eigen sensors onder een subdir hangen.
 const SENSOR_FILE_OVERRIDES = {
   'skyld': 'sensors/tara/skyld.md',
+  'tara-voorpagina': 'sensors/tara/voorpagina.md',
+  'tara-protocol': 'sensors/tara-protocol.md',
+  'tara-cyclus': 'sensors/tara-cyclus.md',
 };
 
 function sensorFilePath(name) {
@@ -462,7 +469,37 @@ const KATERN_DEFS = {
     accent: '#1d6b5c',
     layout: 'skyld-editorial',
   },
+  voorpagina: {
+    label: 'Voorpagina',
+    tagline: 'hoofdverhaal · leads',
+    sensors: ['tara-voorpagina'],
+    viz: null,
+    layout: 'tara-voorpagina',
+  },
 };
+
+// Per-tenant katern-overrides: rendert hetzelfde route-pad (#lichaam) met
+// andere sensors en layout afhankelijk van tenant. Voor Mathijs blijft de
+// cortex/brier lichaam-redactie; voor Tara wordt het tara-protocol +
+// tara-cyclus krant-katern.
+const TENANT_KATERN_OVERRIDES = {
+  tara: {
+    lichaam: {
+      label: 'Lichaam',
+      tagline: 'protocol · cyclus',
+      sensors: ['tara-protocol', 'tara-cyclus'],
+      viz: null,
+      layout: 'tara-lichaam',
+    },
+  },
+};
+
+function resolveKatern(katernName) {
+  const tenant = getTenant();
+  const overrides = TENANT_KATERN_OVERRIDES[tenant.name];
+  if (overrides && overrides[katernName]) return overrides[katernName];
+  return KATERN_DEFS[katernName];
+}
 
 const KATERN_MAP = {};
 for (const [katernName, def] of Object.entries(KATERN_DEFS)) {
@@ -753,9 +790,45 @@ function overledenSortKey(s) {
 }
 
 async function renderKatern(katernName) {
-  const def = KATERN_DEFS[katernName];
+  const def = resolveKatern(katernName);
   const view = document.getElementById('katern-view');
   if (!def || !view) return;
+
+  // Tara-specifieke krant-layouts — bypass tile-grid, hergebruik skyld-style
+  // wrapper. Sensors mogen ontbreken; PulseTaraEditorial toont placeholders.
+  if (def.layout === 'tara-voorpagina' && window.PulseTaraEditorial) {
+    const tenant = getTenant();
+    let content = '';
+    try { content = await fetchFile(sensorFilePath('tara-voorpagina')); }
+    catch (e) { /* placeholder rendering */ }
+    view.innerHTML = `
+      <div class="container katern-page skyld-katern-wrap">
+        <div id="tara-voorpagina-mount"></div>
+      </div>
+    `;
+    window.PulseTaraEditorial.renderVoorpagina({
+      container: document.getElementById('tara-voorpagina-mount'),
+      content,
+      subtitle: tenant.subtitle,
+    });
+    recordKaternView(katernName);
+    return;
+  }
+  if (def.layout === 'tara-lichaam' && window.PulseTaraEditorial) {
+    let protocolContent = '';
+    let cyclusContent = '';
+    try { protocolContent = await fetchFile(sensorFilePath('tara-protocol')); }
+    catch (e) { /* placeholder */ }
+    try { cyclusContent = await fetchFile(sensorFilePath('tara-cyclus')); }
+    catch (e) { /* placeholder */ }
+    window.PulseTaraEditorial.renderLichaam({
+      container: view,
+      protocolContent,
+      cyclusContent,
+    });
+    recordKaternView(katernName);
+    return;
+  }
 
   const lastView = getKaternLastView(katernName);
 
@@ -1146,7 +1219,17 @@ function handleRoute() {
   }
   // Lichaam-redactie — getrapte routes (#lichaam/today, #lichaam/predictions,
   // #lichaam/falsifier). Bron is wiki/sensors/cortex.md (+ optioneel brier.md).
+  // Voor Tara redirecten we /<sub> naar de tara-lichaam-katern (geen sub-routes).
   if (hash.startsWith('lichaam/')) {
+    const tenantForLichaam = getTenant();
+    if (tenantForLichaam.name === 'tara') {
+      document.getElementById('katern-view').classList.add('active');
+      const link = document.querySelector('[data-view="lichaam"]');
+      if (link) link.classList.add('active');
+      renderKatern('lichaam');
+      recordView('lichaam');
+      return;
+    }
     const sub = hash.slice(8);
     document.getElementById('lichaam-view').classList.add('active');
     const link = document.querySelector('[data-view="lichaam"]');
@@ -1207,9 +1290,12 @@ document.querySelectorAll('.nav-links a').forEach(a => {
   a.addEventListener('click', e => {
     e.preventDefault();
     // NEMESIS-link gaat naar getrapte sub-route i.p.v. enkele view
+    const tenant = getTenant();
     if (a.dataset.view === 'nemesis') {
       navigate('nemesis/today');
-    } else if (a.dataset.view === 'lichaam') {
+    } else if (a.dataset.view === 'lichaam' && tenant.name !== 'tara') {
+      // Mathijs gebruikt de cortex/brier-redactie met sub-routes; Tara heeft
+      // een enkele krant-katern op #lichaam zonder sub.
       navigate('lichaam/today');
     } else {
       navigate(a.dataset.view);
@@ -1341,12 +1427,12 @@ function applyTenant() {
   // Body class voor CSS-targeting (.tenant-tara, .tenant-mathijs).
   document.body.classList.add(`tenant-${tenant.name}`);
 
+  // Nav-brand tekst — TARA voor tara.puls.frl, PULSE voor mathijs.
+  const brandEl = document.querySelector('.nav-brand');
+  if (brandEl && tenant.nameplate) brandEl.textContent = tenant.nameplate;
+
   // Document-title aanpassen voor branding.
-  if (tenant.name === 'tara') {
-    document.title = 'PULSE — Tara';
-  } else if (tenant.name === 'mathijs') {
-    document.title = 'PULSE — Mathijs';
-  }
+  document.title = `${tenant.nameplate || 'PULSE'}`;
 
   // Nav filteren: tonen alleen toegestane katernen plus dashboard/graph.
   // tenant.katernen === null → alles tonen (mathijs).
@@ -1362,6 +1448,12 @@ function applyTenant() {
       }
       if (!allowed.has(view)) a.style.display = 'none';
     });
+
+    // Lichaam-link voor tara: href naar #lichaam (geen /today sub-route).
+    if (tenant.name === 'tara') {
+      const lichaamLink = document.querySelector('.nav-links a[data-view="lichaam"]');
+      if (lichaamLink) lichaamLink.setAttribute('href', '#lichaam');
+    }
 
     // Tenants zonder 'dashboard' in hun whitelist krijgen via handleRoute()
     // op #dashboard hun primaire katern gerendered — geen hash-redirect,
