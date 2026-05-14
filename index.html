@@ -10,8 +10,141 @@
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.92em' font-size='90' font-family='Fraunces,serif' font-weight='900'>P</text></svg>">
+  <style>
+    /* Password gate — overlay verbergt de hele pagina tot unlock */
+    body.pulse-locked { overflow: hidden; }
+    body.pulse-locked > *:not(#pulse-auth-gate) { visibility: hidden; }
+    #pulse-auth-gate {
+      position: fixed; inset: 0; z-index: 99999;
+      background: #F8F5EE;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 32px;
+      font-family: 'Lora', Georgia, serif;
+      transition: opacity 320ms ease;
+    }
+    #pulse-auth-gate.pulse-auth-fadeout { opacity: 0; pointer-events: none; }
+    #pulse-auth-gate .pulse-auth-nameplate {
+      font-family: 'Lora', Georgia, serif;
+      font-weight: 700;
+      font-size: 72px;
+      letter-spacing: 0.04em;
+      color: #1a1a1a;
+      line-height: 1;
+    }
+    #pulse-auth-gate .pulse-auth-rule {
+      width: 64px; height: 1px;
+      background: #A87B2E;
+    }
+    #pulse-auth-gate input {
+      width: 220px;
+      padding: 14px 18px;
+      background: transparent;
+      border: 1px solid #c9c0a8;
+      border-radius: 0;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 18px;
+      letter-spacing: 0.2em;
+      text-align: center;
+      color: #1a1a1a;
+      outline: none;
+      transition: border-color 180ms ease;
+    }
+    #pulse-auth-gate input:focus { border-color: #A87B2E; }
+    #pulse-auth-gate input::placeholder { color: #8a8270; letter-spacing: 0.3em; }
+    #pulse-auth-gate.pulse-auth-error input {
+      border-color: #9b3a2f;
+      animation: pulse-auth-shake 280ms ease;
+    }
+    @keyframes pulse-auth-shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-5px); }
+      80% { transform: translateX(5px); }
+    }
+  </style>
 </head>
-<body>
+<body class="pulse-locked">
+  <div id="pulse-auth-gate" role="dialog" aria-modal="true" aria-label="PULSE access">
+    <div class="pulse-auth-nameplate" id="pulse-auth-nameplate">PULSE</div>
+    <div class="pulse-auth-rule"></div>
+    <input
+      type="password"
+      id="pulse-auth-input"
+      placeholder="···"
+      autocomplete="off"
+      autocapitalize="off"
+      spellcheck="false"
+      inputmode="numeric"
+    />
+  </div>
+  <script>
+    (function () {
+      var TENANT_PASSWORDS = {
+        'tara.puls.frl': '554743',
+        'mathijs.puls.frl': '554743',
+        'puls.frl': '554743',
+      };
+      var TENANT_NAMEPLATES = {
+        'tara.puls.frl': 'TARA',
+        'mathijs.puls.frl': 'PULSE',
+        'puls.frl': 'PULSE',
+      };
+
+      var host = window.location.hostname;
+      var expected = TENANT_PASSWORDS[host];
+      var nameplate = TENANT_NAMEPLATES[host] || 'PULSE';
+
+      var gate = document.getElementById('pulse-auth-gate');
+      var input = document.getElementById('pulse-auth-input');
+      var plate = document.getElementById('pulse-auth-nameplate');
+      plate.textContent = nameplate;
+
+      // Onbekende hostname (bv. localhost, vercel preview) → geen gate.
+      if (!expected) {
+        document.body.classList.remove('pulse-locked');
+        gate.remove();
+        return;
+      }
+
+      var storageKey = 'pulse_auth_' + host;
+      try {
+        if (localStorage.getItem(storageKey) === expected) {
+          document.body.classList.remove('pulse-locked');
+          gate.remove();
+          return;
+        }
+      } catch (_) { /* localStorage geblokkeerd — toon gate */ }
+
+      // Focus zodra DOM klaar staat.
+      setTimeout(function () { input.focus(); }, 50);
+
+      function unlock() {
+        try { localStorage.setItem(storageKey, expected); } catch (_) {}
+        gate.classList.add('pulse-auth-fadeout');
+        document.body.classList.remove('pulse-locked');
+        setTimeout(function () { gate.remove(); }, 360);
+      }
+
+      function reject() {
+        gate.classList.add('pulse-auth-error');
+        setTimeout(function () {
+          gate.classList.remove('pulse-auth-error');
+          input.value = '';
+          input.focus();
+        }, 320);
+      }
+
+      input.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        if (input.value === expected) unlock();
+        else reject();
+      });
+    })();
+  </script>
+
   <nav id="nav">
     <div class="nav-brand">PULSE</div>
     <div class="nav-links">
