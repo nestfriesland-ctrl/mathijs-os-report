@@ -2091,3 +2091,216 @@ body {
   .rc-grid { grid-template-columns: 1fr; gap: 1.5rem; }
   .rc-nameplate h1 { font-size: 32px; }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   TARA — Lichaam katern (rich markdown rendering)
+   Marked-output binnen .tara-md-body krijgt krant-typografie. Speciale
+   secties: dagtijdlijn-tabel → tijdblok-cards, fase-tabel → 2-kolom
+   met kleurcode, RED-S → brick-red kader, Bronnen → mono small.
+   ════════════════════════════════════════════════════════════════════ */
+
+.tara-lichaam-wrap { max-width: 1100px; }
+
+.tara-katern-section {
+  border-top: 1px solid var(--krant-ink);
+  margin-top: 2.5rem;
+  padding-top: 2rem;
+}
+.tara-katern-section:first-of-type {
+  border-top: none;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+}
+
+.tara-md-body {
+  font-family: var(--krant-serif);
+  color: var(--krant-ink);
+  font-size: 16px;
+  line-height: 1.65;
+}
+.tara-md-body h1 {
+  font-family: var(--krant-serif);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  margin: 1.5rem 0 1rem;
+  color: var(--krant-ink);
+}
+.tara-md-body h2 {
+  font-family: var(--krant-serif);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 2rem 0 0.75rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 0.5px solid var(--krant-rule);
+  color: var(--krant-ink);
+}
+.tara-md-body h3 {
+  font-family: var(--krant-serif);
+  font-size: 18px;
+  font-weight: 600;
+  margin: 1.5rem 0 0.5rem;
+  color: var(--krant-ink);
+}
+.tara-md-body h4 {
+  font-family: var(--krant-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--krant-ink-muted);
+  margin: 1rem 0 0.4rem;
+}
+.tara-md-body p { margin: 0 0 1rem; }
+.tara-md-body strong { color: var(--krant-ink); font-weight: 700; }
+.tara-md-body em { color: var(--krant-ink); }
+.tara-md-body ul, .tara-md-body ol {
+  margin: 0.5rem 0 1.25rem;
+  padding-left: 1.4rem;
+}
+.tara-md-body li { margin: 0.25rem 0; }
+.tara-md-body a { color: var(--krant-accent); text-decoration: none; }
+.tara-md-body a:hover { text-decoration: underline; }
+.tara-md-body blockquote {
+  border-left: 3px solid var(--krant-accent);
+  padding: 0.25rem 0 0.25rem 1rem;
+  margin: 1rem 0;
+  color: var(--krant-ink-muted);
+  font-style: italic;
+}
+.tara-md-body code {
+  font-family: var(--krant-mono);
+  font-size: 13px;
+  background: rgba(168, 123, 46, 0.08);
+  padding: 0.1em 0.35em;
+  border-radius: 2px;
+}
+
+/* Tabellen — Lora body, mono headers, mosterd accent-rij. */
+.tara-md-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.25rem 0 1.75rem;
+  font-family: var(--krant-serif);
+  font-size: 14px;
+}
+.tara-md-table thead th {
+  font-family: var(--krant-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--krant-bg);
+  background: var(--krant-accent);
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--krant-ink);
+}
+.tara-md-table tbody td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 0.5px solid var(--krant-rule);
+  vertical-align: top;
+  line-height: 1.45;
+}
+.tara-md-table tbody tr:nth-child(odd) td { background: rgba(168, 123, 46, 0.04); }
+.tara-md-table tbody tr:hover td { background: rgba(168, 123, 46, 0.10); }
+
+/* Fase-tabel — bold eerste kolom + kleur-strip via JS inline-style. */
+.tara-fase-table tbody td:first-child { padding-left: 0.85rem; }
+
+/* Dagtijdlijn — tijdblok-cards in plaats van tabel-rijen. */
+.tara-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1.5rem 0 2rem;
+  border-top: 1px solid var(--krant-ink);
+  border-bottom: 1px solid var(--krant-ink);
+  padding: 0.5rem 0;
+}
+.tara-timeline-block {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 1rem;
+  padding: 0.75rem 0.5rem;
+  border-bottom: 0.5px solid var(--krant-rule);
+  align-items: baseline;
+}
+.tara-timeline-block:last-child { border-bottom: none; }
+.tara-timeline-tijd {
+  font-family: var(--krant-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--krant-accent);
+  text-transform: uppercase;
+  font-weight: 600;
+  padding-right: 0.5rem;
+  border-right: 1px solid var(--krant-rule);
+}
+.tara-timeline-inname {
+  font-family: var(--krant-serif);
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 0.2rem;
+  color: var(--krant-ink);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.tara-timeline-functie {
+  font-family: var(--krant-serif);
+  font-size: 13px;
+  color: var(--krant-ink-muted);
+  margin: 0;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* RED-S kader — brick-red border, achtergrond subtiel rood. */
+.tara-reds-block {
+  border-left: 4px solid var(--krant-accent-neg);
+  background: rgba(122, 46, 46, 0.04);
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+  border-radius: 0 2px 2px 0;
+}
+.tara-reds-block h2,
+.tara-reds-block h3 {
+  color: var(--krant-accent-neg);
+  border-bottom-color: rgba(122, 46, 46, 0.25);
+}
+
+/* Bronnen — klein, mono, gedempt. */
+.tara-bronnen-block {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 0.5px solid var(--krant-rule);
+  font-family: var(--krant-mono);
+  font-size: 12px;
+  color: var(--krant-ink-muted);
+  line-height: 1.55;
+}
+.tara-bronnen-block h2,
+.tara-bronnen-block h3 {
+  font-family: var(--krant-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border-bottom: none;
+  padding-bottom: 0;
+  margin: 0 0 0.75rem;
+  color: var(--krant-ink-muted);
+}
+.tara-bronnen-block ul { padding-left: 1.1rem; }
+.tara-bronnen-block li { margin: 0.2rem 0; }
+
+/* Dropcap voor eerste lichaam-paragraaf, identiek aan krant-dropcap. */
+.tara-lead-para { font-size: 17px; line-height: 1.55; }
+
+/* Responsive ──────────────────────────────────────────────────────── */
+@media (max-width: 760px) {
+  .tara-timeline-block { grid-template-columns: 1fr; gap: 0.3rem; }
+  .tara-timeline-tijd { border-right: none; border-bottom: 1px solid var(--krant-rule); padding-bottom: 0.25rem; }
+  .tara-md-table { font-size: 13px; }
+  .tara-md-table thead th,
+  .tara-md-table tbody td { padding: 0.4rem 0.5rem; }
+}

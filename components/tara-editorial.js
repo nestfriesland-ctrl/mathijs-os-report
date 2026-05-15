@@ -160,9 +160,141 @@
 
   // --- LICHAAM-KATERN ---------------------------------------------------
 
+  // --- Rich markdown rendering voor lichaam-katern ----------------------
+
+  function mdToHtml(md) {
+    if (window.marked && typeof window.marked.parse === 'function') {
+      return window.marked.parse(md, { gfm: true, breaks: false });
+    }
+    // Minimale fallback — alleen veilig escapen.
+    return `<pre class="krant-body">${esc(md)}</pre>`;
+  }
+
+  // Detecteer of een tabel de dagtijdlijn-tabel is (kolom 1 = tijdstip).
+  function isTimelineTable(table) {
+    const ths = table.querySelectorAll('thead th');
+    if (!ths.length) return false;
+    return /tijdstip/i.test(ths[0].textContent);
+  }
+
+  // Detecteer een fase-tabel (kolomkop "Fase" of "Phase").
+  function isFaseTable(table) {
+    const ths = table.querySelectorAll('thead th');
+    if (!ths.length) return false;
+    return /^\s*fase\s*$/i.test(ths[0].textContent);
+  }
+
+  // Render een rij van de dagtijdlijn als horizontale tijdblok-card.
+  function renderTimelineCards(table) {
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    if (!rows.length) return null;
+    const wrap = document.createElement('div');
+    wrap.className = 'tara-timeline';
+    for (const tr of rows) {
+      const cells = Array.from(tr.cells).map(c => c.innerHTML.trim());
+      if (cells.length < 3) continue;
+      const block = document.createElement('article');
+      block.className = 'tara-timeline-block';
+      block.innerHTML = `
+        <div class="tara-timeline-tijd">${cells[0]}</div>
+        <div class="tara-timeline-body">
+          <h4 class="tara-timeline-inname">${cells[1]}</h4>
+          <p class="tara-timeline-functie">${cells[2]}</p>
+        </div>
+      `;
+      wrap.appendChild(block);
+    }
+    return wrap;
+  }
+
+  // Kleur per fase (folliculair-groen, ovulatie-mosterd, luteaal-rood, menstruatie-blauw).
+  function faseColor(label) {
+    const l = (label || '').toLowerCase();
+    if (l.includes('foll')) return 'var(--krant-accent-pos, #3B6D11)';
+    if (l.includes('ovul')) return 'var(--krant-accent)';
+    if (l.includes('lute')) return 'var(--krant-accent-neg)';
+    if (l.includes('menstr')) return '#3B5B7A';
+    return 'var(--krant-ink-muted)';
+  }
+
+  // Post-process de marked-output: voeg krant-classes toe, herken speciale
+  // secties (RED-S → brick-red border, Bronnen → mono small, Dagtijdlijn
+  // tabel → visuele cards, Fase-tabel → 2-koloms vergelijking).
+  function decorate(rootEl) {
+    // Eerste paragraaf na de hoogste heading → dropcap.
+    const firstP = rootEl.querySelector('h1 + p, h2 + p');
+    if (firstP && firstP.textContent.length > 80) {
+      firstP.classList.add('krant-body', 'krant-dropcap', 'tara-lead-para');
+    }
+
+    // Alle resterende paragrafen → krant-body.
+    rootEl.querySelectorAll('p').forEach(p => {
+      if (!p.classList.contains('krant-dropcap')) p.classList.add('krant-body');
+    });
+
+    // Tabellen → krant-table styling.
+    rootEl.querySelectorAll('table').forEach(table => {
+      table.classList.add('tara-md-table');
+      if (isTimelineTable(table)) {
+        const cards = renderTimelineCards(table);
+        if (cards) table.parentNode.replaceChild(cards, table);
+      } else if (isFaseTable(table)) {
+        table.classList.add('tara-fase-table');
+        // Color-code de fase-kolom.
+        table.querySelectorAll('tbody tr').forEach(tr => {
+          const first = tr.cells[0];
+          if (first) {
+            first.style.borderLeft = `3px solid ${faseColor(first.textContent)}`;
+            first.style.fontWeight = '600';
+          }
+        });
+      }
+    });
+
+    // Speciale secties op basis van heading-tekst.
+    rootEl.querySelectorAll('h1, h2, h3').forEach(h => {
+      const txt = h.textContent.trim();
+      h.classList.add('krant-h2');
+      // RED-S → wrap volgende blok in een rood-omrand kader.
+      if (/RED-S/i.test(txt) || /alarmsignalen/i.test(txt)) {
+        wrapSectionUntilNextHeading(h, 'tara-reds-block');
+      }
+      // Bronnen → small mono.
+      if (/^(bronnen|sources|referenties)$/i.test(txt)) {
+        wrapSectionUntilNextHeading(h, 'tara-bronnen-block');
+      }
+      // Fase headings (folliculair, luteaal, ovulatie, menstruatie) → kleur-strip.
+      const lvl = parseInt(h.tagName.slice(1), 10);
+      if (lvl >= 3 && /foll|lute|ovul|menstr/i.test(txt)) {
+        h.style.borderLeft = `3px solid ${faseColor(txt)}`;
+        h.style.paddingLeft = '0.6rem';
+      }
+    });
+  }
+
+  // Pak heading + alles tot volgende heading en wrap in een div met class.
+  function wrapSectionUntilNextHeading(headingEl, cls) {
+    const lvl = parseInt(headingEl.tagName.slice(1), 10);
+    const parent = headingEl.parentNode;
+    const wrap = document.createElement('section');
+    wrap.className = cls;
+    parent.insertBefore(wrap, headingEl);
+    let node = headingEl;
+    while (node) {
+      const next = node.nextSibling;
+      wrap.appendChild(node);
+      if (!next) break;
+      if (next.nodeType === 1 && /^H[1-6]$/.test(next.tagName)) {
+        const nextLvl = parseInt(next.tagName.slice(1), 10);
+        if (nextLvl <= lvl) break;
+      }
+      node = next;
+    }
+  }
+
   function lichaamPlaceholderSection(naam, pad) {
     return `
-      <section class="krant-katern" style="border-top: 1px solid var(--krant-ink); margin-top: 2rem; padding-top: 2rem; max-width: none;">
+      <section class="tara-katern-section">
         <div class="krant-katern-head">
           <h2 class="krant-h2">${esc(naam)}</h2>
           <span class="krant-meta">binnenkort</span>
@@ -178,26 +310,27 @@
   function lichaamSensorSection(naam, content) {
     const fm = parseFm(content);
     const body = stripFm(content);
-    const proza = firstParagraph(body);
-    const sections = parseSections(body);
-    const sectionsHtml = sections.slice(0, 4).map(s => `
-      <div style="margin-top: 1.25rem;">
-        <h3 class="krant-h2" style="font-size: 18px;">${esc(s.heading)}</h3>
-        <p class="krant-body" style="font-size: 14px;">${esc(s.body.split(/\n\s*\n/)[0].replace(/\s+/g, ' '))}</p>
-      </div>
-    `).join('');
-    const meta = fm.last_updated || fm.lastUpdated || fm.cycle || '';
-    return `
-      <section class="krant-katern" style="border-top: 1px solid var(--krant-ink); margin-top: 2rem; padding-top: 2rem; max-width: none;">
-        <div class="krant-katern-head">
-          <h2 class="krant-h2">${esc(naam)}</h2>
-          ${meta ? `<span class="krant-meta">${esc(meta)}</span>` : ''}
-        </div>
-        <hr class="krant-rule-light">
-        ${proza ? `<p class="krant-body krant-dropcap">${esc(proza)}</p>` : ''}
-        ${sectionsHtml}
-      </section>
+    const meta = fm.last_updated || fm.lastUpdated || fm.version || '';
+    const rawHtml = mdToHtml(body);
+    // Render in een DOM-container zodat we kunnen decoreren.
+    const sec = document.createElement('section');
+    sec.className = 'tara-katern-section';
+    const head = document.createElement('div');
+    head.className = 'krant-katern-head';
+    head.innerHTML = `
+      <h2 class="krant-h2">${esc(naam)}</h2>
+      ${meta ? `<span class="krant-meta">${esc(meta)}</span>` : ''}
     `;
+    sec.appendChild(head);
+    const rule = document.createElement('hr');
+    rule.className = 'krant-rule-light';
+    sec.appendChild(rule);
+    const body_el = document.createElement('div');
+    body_el.className = 'tara-md-body';
+    body_el.innerHTML = rawHtml;
+    decorate(body_el);
+    sec.appendChild(body_el);
+    return sec.outerHTML;
   }
 
   function renderLichaam(opts) {
@@ -217,9 +350,9 @@
       : lichaamPlaceholderSection('Cyclus', 'sensors/tara-cyclus.md');
 
     container.innerHTML = `
-      <div class="container katern-page skyld-katern-wrap">
+      <div class="container katern-page skyld-katern-wrap tara-lichaam-wrap">
         <a href="#voorpagina" class="back-link skyld-back-link">← Voorpagina</a>
-        <div class="tara-editorial">
+        <div class="tara-editorial tara-lichaam-editorial">
           <header class="krant-nameplate">
             <h1 class="krant-nameplate-title">Lichaam</h1>
             <p class="krant-nameplate-sub">Protocol &amp; Cyclus — ${esc(datum)}</p>
